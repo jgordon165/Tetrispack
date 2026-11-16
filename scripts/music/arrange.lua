@@ -103,6 +103,16 @@ A.bassStyles = {
     local r, f = rootKey(chord, low), fifthKey(chord, low)
     return { { 0, r }, { 0.75, r }, { 1.5, f }, { 2, r + 12 }, { 2.75, r }, { 3, f }, { 3.5, r + 12 } }, 0.35
   end,
+  -- Racing synth bass: sixteenths with octave jumps and a syncopated push
+  -- (the early-90s Euro-rock driving style).
+  drive = function(chord, low, nextChord)
+    local r, f = rootKey(chord, low), fifthKey(chord, low)
+    local nr = nextChord and rootKey(nextChord, low) or r
+    local seq = { r, r, r + 12, r, r, r + 12, r, r + 12, r, r, r + 12, r, f, f + 12, r + 12, (nr > r) and nr - 2 or nr + 2 }
+    local out = {}
+    for i, k in ipairs(seq) do out[#out + 1] = { (i - 1) * 0.25, k } end
+    return out, 0.18
+  end,
   -- Steady pumping eighths with an octave lift every other beat.
   pump = function(chord, low)
     local r, out = rootKey(chord, low), {}
@@ -134,10 +144,13 @@ A.patterns = {
   polka = { kick = "x.......x.......", snare = "....o.......o...", hat = "..x...x...x...x." },
   pop   = { kick = "x.....x...x.....", snare = "....x.......x...", hat = "x.o.x.o.x.o.x.oo" },
   slow  = { kick = "x.........x.....", snare = "........x.......", hat = "x...o...x...o..." },
+  -- Racing rock: kick on every beat plus pushes, open hats on the off-beats.
+  racer = { kick = "x...x..xx...x..x", snare = "....x.......x...", hat = "xoxoxoxoxoxoxoxo", open = "..x...x...x...x." },
 }
 A.fills = {
   snare = { snare = "....x.x.xoxoxxxx", kick = "x.......x.......", tom = "................" },
   toms  = { snare = "....x.......x.x.", kick = "x.......x.......", tom = "........x.x.x.xx" },
+  racer = { snare = "x.x.x.xxx.x.....", kick = "x...x...x.......", tom = "........x.x.x.xx" },
 }
 
 function A.drums(bars, patternName, opts)
@@ -145,13 +158,13 @@ function A.drums(bars, patternName, opts)
   local p = A.patterns[patternName]
   local fill = A.fills[opts.fill or "snare"]
   local every = opts.fillEvery or 8
-  local out = { kick = {}, snare = {}, hat = {}, crash = {}, tom = {} }
+  local out = { kick = {}, snare = {}, hat = {}, crash = {}, tom = {}, open = {} }
   local tomKeys = { 50, 47, 45, 43 }
   for bar = 1, bars do
     local isFill = (bar % every == 0)
     for part, list in pairs(out) do
       local steps = (isFill and fill[part]) or p[part]
-      if part == "hat" and isFill then steps = "x.o.x.o........." end
+      if (part == "hat" or part == "open") and isFill then steps = (part == "hat") and "x.o.x.o........." or nil end
       if steps then
         local n = 0
         for i = 1, 16 do
@@ -169,6 +182,25 @@ function A.drums(bars, patternName, opts)
     end
     if (bar - 1) % every == 0 and opts.crash ~= false then
       out.crash[#out.crash + 1] = { (bar - 1) * 4, 0.2, 60, 0.8 }
+    end
+  end
+  return out
+end
+
+-- Power-chord stabs (root, fifth, octave) on a 16-step rhythm per bar,
+-- from the root at or above `low`.
+function A.stabs(chords, rhythm, low, opts)
+  opts = opts or {}
+  local out = {}
+  for bar = opts.from or 1, opts.to or #chords do
+    local r = rootKey(A.chords[chords[bar]], low)
+    for i = 1, 16 do
+      local c = rhythm:sub(i, i)
+      if c == "x" or c == "o" then
+        local t = (bar - 1) * 4 + (i - 1) * 0.25
+        local vel = (c == "x") and 0.85 or 0.6
+        for _, k in ipairs({ r, r + 7, r + 12 }) do out[#out + 1] = { t, 0.2, k, vel } end
+      end
     end
   end
   return out

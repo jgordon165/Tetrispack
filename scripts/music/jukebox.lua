@@ -3,29 +3,63 @@
 -- chosen in the menu, or none; played as a Super NES, a Mega Drive or a
 -- Sound Blaster would. Builds each (song, engine) once.
 local mml = require("music.mml")
+local A = require("music.arrange")
 local instruments = require("music.instruments")
 local songs = require("music.songs")
+local profiles = require("music.styles")
 
 local jukebox = { songs = songs }
 
 -- The sound engines, in menu order.
-jukebox.styles = {
-  { id = "snes", name = "Super NES" },
-  { id = "genesis", name = "Mega Drive" },
-  { id = "opl3", name = "Sound Blaster" },
-}
+jukebox.styles = {}
+for _, id in ipairs({ "snes", "genesis", "opl3" }) do
+  jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
+end
+
+-- The tracks of `song` as `style` arranges it: the song's own tracks, plus
+-- its bass line and drums (restyled if the engine says so), plus stabs.
+function jukebox.tracks(song, style)
+  local p = profiles[style] or {}
+  local drop = p.drop or {}
+  local tracks = {}
+  for _, t in ipairs(song.tracks) do
+    if not drop[t.inst] then tracks[#tracks + 1] = t end
+  end
+  if song.bass then
+    tracks[#tracks + 1] = { inst = "bass", vol = song.bass.vol,
+                            notes = A.bass(song.chords, p.bass or song.bass.style, { low = song.bass.low }) }
+  end
+  if song.drums then
+    local d = A.drums(song.bars, p.drums or song.drums.pattern,
+                      { fill = p.fill or song.drums.fill, fillEvery = p.fillEvery or song.drums.fillEvery })
+    local vols = song.drums.vols or {}
+    for _, part in ipairs({ "kick", "snare", "hat", "open", "crash", "tom" }) do
+      if #d[part] > 0 then tracks[#tracks + 1] = { inst = part, vol = vols[part] or 1, notes = d[part] } end
+    end
+  end
+  if p.stabs then
+    tracks[#tracks + 1] = { inst = "stabs", vol = p.stabs.vol, notes = A.stabs(song.chords, p.stabs.rhythm, p.stabs.low) }
+  end
+  return tracks
+end
+
+function jukebox.tempo(song, style)
+  local p = profiles[style] or {}
+  return p.tempo and p.tempo(song.tempo) or song.tempo
+end
 
 -- song, engine id -> the table tp.music_play takes (see src/music/song_lua.h).
 function jukebox.build(song, style)
   style = style or "snes"
   local set = instruments[style] or error("no such music style " .. tostring(style))
-  local spb = 60 / song.tempo
+  local spb = 60 / jukebox.tempo(song, style)
   local beats = song.bars * 4
   local out = { engine = style, instruments = {}, notes = {}, length = beats * spb }
   -- The SNES echo: a dotted-eighth-ish delay, up to the chip's 240 ms.
-  out.echo = { delay = math.min(0.24, 0.75 * spb), feedback = 0.42, volume = 0.32 }
+  local echo = (profiles[style] or {}).echo or {}
+  out.echo = { delay = math.min(0.24, 0.75 * spb), feedback = echo.feedback or 0.42, volume = echo.volume or 0.32 }
   local index = {}
-  for _, t in ipairs(song.tracks) do
+  for _, t in ipairs(jukebox.tracks(song, style)) do
     local inst = set[t.inst]
     if inst == nil then error(("%s has no instrument %s"):format(style, tostring(t.inst))) end
     if inst then

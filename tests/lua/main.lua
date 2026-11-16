@@ -204,6 +204,16 @@ do
             song.name .. " on " .. style.id .. " (" .. #b.notes .. " notes, " .. b.length .. " s)")
     end
   end
+  -- The Super NES restyles: faster, racing bass, stabs, open hats; the others don't.
+  local koro = jukebox.songs[1]
+  local function has(tracks, inst) for _, t in ipairs(tracks) do if t.inst == inst then return true end end return false end
+  local snes, md = jukebox.tracks(koro, "snes"), jukebox.tracks(koro, "genesis")
+  check(has(snes, "stabs") and has(snes, "open") and not has(snes, "bells"), "snes: stabs and open hats, no doublings")
+  check(not has(md, "stabs") and has(md, "bells"), "mega drive: the song's own arrangement")
+  check(jukebox.tempo(koro, "snes") > koro.tempo and jukebox.tempo(koro, "genesis") == koro.tempo, "snes plays faster")
+  local bassSnes
+  for _, t in ipairs(snes) do if t.inst == "bass" then bassSnes = t end end
+  check(#bassSnes.notes == koro.bars * 16, "snes bass in sixteenths")
   check(jukebox.songFor(1) == 1 and jukebox.songFor(2) == 1 and jukebox.songFor(5) == 3 and jukebox.songFor(10) == 5,
         "a song per pair of levels")
   jukebox.choice = "Samovar"; check(jukebox.songFor(1) == 3, "a chosen song")

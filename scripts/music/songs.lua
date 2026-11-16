@@ -5,24 +5,17 @@
 --
 -- The melodies are hand-written MML (music/mml.lua); the rest of each
 -- arrangement is game-style accompaniment built from the chord per bar
--- (music/arrange.lua): a harmony line, chip arpeggios, a moving bass line,
--- drums with fills. Each track names an instrument (music/instruments.lua),
--- which the chosen sound engine plays its own way.
+-- (music/arrange.lua): a harmony line, chip arpeggios, and - declared here
+-- as `bass` and `drums`, built per sound engine by music/jukebox.lua, which
+-- may restyle them - a moving bass line and drums with fills. Each track
+-- names an instrument (music/instruments.lua), which the chosen engine
+-- plays its own way.
 local A = require("music.arrange")
 
 local function bars(s, n) return (s .. " "):rep(n) end
 local function cat(...) local t = {} for _, l in ipairs({ ... }) do for _, v in ipairs(l) do t[#t + 1] = v end end return t end
 local function up(text, n) return (text:gsub("o(%d)", function(o) return "o" .. (tonumber(o) + (n or 1)) end)) end
 local function join(list, from, to) return table.concat({ table.unpack(list, from or 1, to or #list) }, " | ") .. " |" end
-
--- Adds the drum tracks of A.drums to a track list.
-local function drums(tracks, nbars, pattern, opts, vols)
-  vols = vols or {}
-  local d = A.drums(nbars, pattern, opts)
-  for _, part in ipairs({ "kick", "snare", "hat", "crash", "tom" }) do
-    if #d[part] > 0 then tracks[#tracks + 1] = { inst = part, vol = vols[part] or 1, notes = d[part] } end
-  end
-end
 
 -- Held chords, one per bar (or two halves).
 local function padLine(chords, voicing, halves)
@@ -49,10 +42,10 @@ do
     { inst = "harmony", vol = 0.8, notes = A.harmony(melody, koro.chords) },
     { inst = "bells", vol = 0.5, mml = bars("r1", 8) .. "q6 " .. up(A1 .. A2) .. bars("r1", 8) },
     { inst = "arp", vol = 0.8, notes = A.arp(koro.chords, 64, 0.25, { from = 9, to = 24 }) },
-    { inst = "bass", vol = 0.85, notes = A.bass(koro.chords, "octave", { low = 40 }) },
     { inst = "pad", vol = 0.4, mml = bars("r1", 16) .. padLine(chordsB, voicing) },
   }
-  drums(koro.tracks, 24, "rock", { fillEvery = 8, fill = "snare" }, { hat = 0.6, crash = 0.7 })
+  koro.bass = { style = "octave", low = 40, vol = 0.85 }
+  koro.drums = { pattern = "rock", fillEvery = 8, fill = "snare", vols = { hat = 0.6, crash = 0.7 } }
 end
 
 -- 2. Program Manager (levels 3-4): a bright early-Windows MIDI demo tune ---
@@ -76,9 +69,9 @@ do
     { inst = "arp", vol = 0.75, notes = A.arp(progman.chords, 62, 0.25) },
     { inst = "epiano", vol = 0.45, mml = "q6 " .. stabs },
     { inst = "pad", vol = 0.35, mml = padLine(progman.chords, voicing) },
-    { inst = "bass", vol = 0.85, notes = A.bass(progman.chords, "synco", { low = 38 }) },
   }
-  drums(progman.tracks, 16, "pop", { fillEvery = 8, fill = "toms" }, { hat = 0.55, crash = 0.6 })
+  progman.bass = { style = "synco", low = 38, vol = 0.85 }
+  progman.drums = { pattern = "pop", fillEvery = 8, fill = "toms", vols = { hat = 0.55, crash = 0.6 } }
 end
 
 -- 3. Samovar (levels 5-6): a Russian dance, accordion and balalaika ---------
@@ -99,9 +92,9 @@ do
     -- Balalaika tremolo: fast arpeggios in the second half.
     { inst = "pluck", vol = 0.6, notes = A.arp(samovar.chords, 57, 0.25, { from = 9, to = 16 }) },
     { inst = "arp", vol = 0.6, notes = A.arp(samovar.chords, 69, 0.125, { from = 13, to = 16 }) },
-    { inst = "bass", vol = 0.85, notes = A.bass(samovar.chords, "oompah", { low = 38 }) },
   }
-  drums(samovar.tracks, 16, "polka", { fillEvery = 8, fill = "snare" }, { hat = 0.6, crash = 0.6 })
+  samovar.bass = { style = "oompah", low = 38, vol = 0.85 }
+  samovar.drums = { pattern = "polka", fillEvery = 8, fill = "snare", vols = { hat = 0.6, crash = 0.6 } }
 end
 
 -- 4. Midnight Desktop (levels 7-8): slow and moody ---------------------------
@@ -121,9 +114,9 @@ do
     { inst = "epiano", vol = 0.55, notes = A.arp(midnight.chords, 55, 0.5) },
     { inst = "arp", vol = 0.5, notes = A.arp(midnight.chords, 67, 0.25, { from = 9, to = 16 }) },
     { inst = "pad", vol = 0.4, mml = padLine(midnight.chords, voicing) },
-    { inst = "bass", vol = 0.8, notes = A.bass(midnight.chords, "pump", { low = 36 }) },
   }
-  drums(midnight.tracks, 16, "slow", { fillEvery = 8, fill = "toms" }, { hat = 0.5, crash = 0.5, kick = 0.8 })
+  midnight.bass = { style = "pump", low = 36, vol = 0.8 }
+  midnight.drums = { pattern = "slow", fillEvery = 8, fill = "toms", vols = { hat = 0.5, crash = 0.5, kick = 0.8 } }
 end
 
 -- 5. Steppe Express (levels 9-10): fast, driving, harmonic minor -------------
@@ -142,9 +135,9 @@ do
     { inst = "bells", vol = 0.45, mml = bars("r1", 8) .. "q6 " .. up(mel) },
     { inst = "arp", vol = 0.7, notes = A.arp(steppe.chords, 64, 0.25) },
     { inst = "pad", vol = 0.35, mml = padLine(steppe.chords, voicing, true) },
-    { inst = "bass", vol = 0.85, notes = A.bass(steppe.chords, "gallop", { low = 40 }) },
   }
-  drums(steppe.tracks, 16, "drive", { fillEvery = 4, fill = "toms" }, { hat = 0.55, crash = 0.6 })
+  steppe.bass = { style = "gallop", low = 40, vol = 0.85 }
+  steppe.drums = { pattern = "drive", fillEvery = 4, fill = "toms", vols = { hat = 0.55, crash = 0.6 } }
 end
 
 return { koro, progman, samovar, midnight, steppe }

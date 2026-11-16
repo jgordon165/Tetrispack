@@ -16,7 +16,7 @@ namespace {
 
 constexpr double kRate = 32000.0;
 constexpr int kCycle = 256;             // looped waveforms: one cycle
-constexpr float kVoiceGain = 12000.0f;
+constexpr float kVoiceGain = 10500.0f;
 constexpr double kPi = 3.14159265358979323846;
 // Echo FIR: a gentle low-pass, as games usually set it.
 constexpr std::array<float, 8> kFir = {0.05f, 0.10f, 0.16f, 0.19f, 0.19f, 0.15f, 0.10f, 0.06f};
@@ -53,9 +53,15 @@ public:
         if (best < 0)
             for (int i = 0; i < 8; ++i)
                 if (voice_[i].env.stage == EnvState::Release && (best < 0 || voice_[i].since < voice_[best].since)) best = i;
-        if (best < 0)
+        if (best < 0)   // all busy: the oldest of the lowest priority gives way
             for (int i = 0; i < 8; ++i)
-                if (best < 0 || voice_[i].since < voice_[best].since) best = i;
+                if (best < 0 || voice_[i].priority < voice_[best].priority ||
+                    (voice_[i].priority == voice_[best].priority && voice_[i].since < voice_[best].since)) best = i;
+        // Portamento: slide from the last note this instrument played.
+        double from = 0;
+        Last* last = nullptr;
+        for (auto& l : last_) if (l.inst == &inst) last = &l;
+        if (!last) { last_[lastNext_] = Last{&inst, 0}; last = &last_[lastNext_]; lastNext_ = (lastNext_ + 1) % last_.size(); }
         Voice& v = voice_[best];
         v = Voice{};
         v.id = id;
@@ -71,6 +77,11 @@ public:
         v.gl = std::sqrt(0.5f * (1 - pan)) * 1.4142f;
         v.gr = std::sqrt(0.5f * (1 + pan)) * 1.4142f;
         v.echo = inst.echo;
+        v.priority = inst.priority;
+        if (inst.glide > 0 && last->step > 0) from = last->step;
+        last->step = v.step;
+        v.glideRatio = from > 0 ? float(from / v.step) : 1.0f;
+        v.glideRate = inst.glide > 0 ? float(1.0 / (inst.glide * kRate)) : 1.0f;
         v.env.start();
     }
 
@@ -81,6 +92,7 @@ public:
 
     void allOff() override {
         for (auto& v : voice_) v = Voice{};
+        last_.fill(Last{});
     }
 
     void frame(float& l, float& r) override {
@@ -105,6 +117,11 @@ public:
                              (-3 * t3 + 3 * t2 + 3 * t + 1) * s2 + t3 * s3) / 6.0f;
             v.t += dt;
             double step = v.step;
+            if (v.glideRatio != 1.0f) {   // glide in log-frequency toward the note
+                const float r = std::log(v.glideRatio) * (1.0f - std::min(1.0f, v.glideRate * 6.0f));
+                v.glideRatio = std::fabs(r) < 0.0005f ? 1.0f : std::exp(r);
+                step *= v.glideRatio;
+            }
             if (v.vibrato > 0 && v.t > 0.15f)   // delayed vibrato, as composers liked
                 step *= std::pow(2.0, v.vibrato * std::sin(2 * kPi * 5.0 * v.t) / 12.0);
             v.pos += step;
@@ -188,16 +205,19 @@ private:
         };
         double ph = 0;
         oneShot(Wave::Kick, 0.30, 60, [&](double t) {
-            const double hz = 45 + 120 * std::exp(-t / 0.035);
+            const double hz = 48 + 150 * std::exp(-t / 0.025);
             ph += 2 * kPi * hz / kRate;
-            return float(std::sin(ph) * std::exp(-t / 0.13) * 1.1);
+            const double click = t < 0.004 ? noise() * (1 - t / 0.004) * 0.6 : 0.0;
+            return float(std::tanh(1.6 * std::sin(ph) * std::exp(-t / 0.12)) + click);
         });
         float lp = 0;
         ph = 0;
-        oneShot(Wave::Snare, 0.25, 60, [&](double t) {
-            lp += 0.55f * (noise() - lp);
-            ph += 2 * kPi * 185 / kRate;
-            return float(lp * std::exp(-t / 0.07) * 0.9 + std::sin(ph) * std::exp(-t / 0.03) * 0.6);
+        oneShot(Wave::Snare, 0.35, 60, [&](double t) {
+            lp += 0.62f * (noise() - lp);
+            const double hz = 175 + 60 * std::exp(-t / 0.01);
+            ph += 2 * kPi * hz / kRate;
+            return float(lp * (0.75 * std::exp(-t / 0.09) + 0.2 * std::exp(-t / 0.02)) +
+                         std::sin(ph) * std::exp(-t / 0.035) * 0.7);
         });
         float prev = 0;
         oneShot(Wave::Hat, 0.08, 60, [&](double t) {
@@ -205,6 +225,13 @@ private:
             const float hp = x - prev;
             prev = x;
             return float(hp * 0.6 * std::exp(-t / 0.018));
+        });
+        prev = 0;
+        oneShot(Wave::OpenHat, 0.30, 60, [&](double t) {
+            const float x = noise();
+            const float hp = x - prev;
+            prev = x;
+            return float(hp * 0.55 * std::exp(-t / 0.09));
         });
         prev = 0;
         oneShot(Wave::Crash, 1.4, 60, [&](double t) {
@@ -246,7 +273,12 @@ private:
         Envelope envelope;
         EnvState env;
         float vel = 0, gl = 1, gr = 1, echo = 0, vibrato = 0, t = 0;
+        float glideRatio = 1, glideRate = 1;
+        int priority = 1;
     };
+    struct Last { const Instrument* inst = nullptr; double step = 0; };
+    std::array<Last, 16> last_{};
+    size_t lastNext_ = 0;
     std::vector<Sample> samples_;
     Voice voice_[8];
     uint64_t clock_ = 0;

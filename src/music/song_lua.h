@@ -7,8 +7,8 @@
 //                 car = {...}, feedback, additive },
 //         fm4 = { alg, fb, ams, fms, ops = { {dt, mul, tl, ks, ar, d1r, d2r, d1l, rr, am} x4 } },
 //         env = { attack, decay, sustain, release },             -- psg, noise, sample
-//         wave = "pulse25" | "saw" | ... | "kick",                -- sample
-//         noise_hz, vibrato, gain, pan, echo, key }, ... },
+//         wave = "pulse25" | "saw" | ... | "kick" | "openhat",    -- sample
+//         noise_hz, vibrato, gain, pan, echo, glide, priority, key }, ... },
 //     notes = { { start, length, key, velocity, instrument (1-based) }, ... } }
 #pragma once
 

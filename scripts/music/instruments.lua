@@ -52,6 +52,9 @@ I.opl3 = {
     car = { mult = 1, tl = 6, ar = 15, dr = 7, sl = 15, rr = 15, sustain = 0 } }, { key = 62 }),
   hat = opl({ feedback = 7, mod = { mult = 15, tl = 0, ar = 15, dr = 10, sl = 15, rr = 15 },
     car = { mult = 15, tl = 14, ar = 15, dr = 10, sl = 15, rr = 15, sustain = 0 } }, { key = 96 }),
+  open = opl({ feedback = 7, mod = { mult = 15, tl = 0, ar = 15, dr = 7, sl = 15, rr = 7 },
+    car = { mult = 15, tl = 12, ar = 15, dr = 7, sl = 15, rr = 7, sustain = 0 } }, { key = 96, gain = 0.6 }),
+  stabs = with(oplLead, { gain = 0.4 }),
   crash = opl({ feedback = 7, mod = { mult = 15, tl = 0, ar = 15, dr = 4, sl = 15, rr = 5 },
     car = { mult = 13, tl = 8, ar = 15, dr = 4, sl = 15, rr = 5, sustain = 0 } }, { key = 90, gain = 0.6 }),
   tom = opl({ mod = { mult = 0, tl = 20, ar = 15, dr = 8, sl = 15, rr = 15 },
@@ -116,6 +119,8 @@ I.genesis = {
   }, { key = 57, gain = 0.8 }),
   hat = { kind = "noise", noise_hz = 22000, env = { attack = 0.001, decay = 0.04, sustain = 0, release = 0.02 }, gain = 0.2 },
   crash = { kind = "noise", noise_hz = 16000, env = { attack = 0.001, decay = 0.9, sustain = 0, release = 0.3 }, gain = 0.3 },
+  open = { kind = "noise", noise_hz = 22000, env = { attack = 0.001, decay = 0.18, sustain = 0, release = 0.05 }, gain = 0.2 },
+  stabs = with(mdLead, { gain = 0.4 }),
   tom = fm(0, 2, {
     { mul = 0, tl = 30, ar = 31, d1r = 14, d1l = 15, rr = 15 },
     { mul = 0, tl = 30, ar = 31, d1r = 14, d1l = 15, rr = 15 },
@@ -125,6 +130,9 @@ I.genesis = {
 }
 
 -- Super NES: eight sampled voices with echo --------------------------------
+-- Voiced for an early-90s racing-game sound: a bright saw lead that glides
+-- between notes, pulse harmony, a punchy saw bass, brass stabs, rock kit.
+-- priority: who keeps a voice when all eight are busy (higher stays).
 local function s(wave, env, extra)
   local t = { kind = "sample", wave = wave, env = env }
   for k, v in pairs(extra or {}) do t[k] = v end
@@ -132,20 +140,25 @@ local function s(wave, env, extra)
 end
 local drum = { attack = 0.001, decay = 10, sustain = 1, release = 0.4 }
 I.snes = {
-  lead = s("pulse25", { attack = 0.004, decay = 0.5, sustain = 0.7, release = 0.15 }, { vibrato = 0.25, echo = 0.5, gain = 0.8 }),
-  harmony = s("brass", { attack = 0.01, decay = 0.5, sustain = 0.65, release = 0.15 }, { gain = 0.42, pan = -0.45, echo = 0.45 }),
-  arp = s("pulse12", { attack = 0.002, decay = 0.12, sustain = 0.25, release = 0.05 }, { gain = 0.38, pan = 0.5, echo = 0.4 }),
-  epiano = s("epiano", { attack = 0.003, decay = 0.9, sustain = 0.3, release = 0.3 }, { gain = 0.55, echo = 0.5, pan = 0.25 }),
-  bass = s("saw", { attack = 0.002, decay = 0.3, sustain = 0.55, release = 0.06 }, { gain = 0.75 }),
+  lead = s("saw", { attack = 0.003, decay = 0.6, sustain = 0.75, release = 0.12 },
+           { vibrato = 0.2, glide = 0.035, echo = 0.45, gain = 0.62, priority = 3 }),
+  harmony = s("pulse25", { attack = 0.004, decay = 0.5, sustain = 0.6, release = 0.12 },
+              { gain = 0.4, pan = -0.45, echo = 0.4, priority = 2 }),
+  arp = s("pulse12", { attack = 0.002, decay = 0.12, sustain = 0.25, release = 0.05 }, { gain = 0.36, pan = 0.5, echo = 0.4 }),
+  epiano = s("epiano", { attack = 0.003, decay = 0.9, sustain = 0.3, release = 0.3 }, { gain = 0.5, echo = 0.5, pan = 0.25 }),
+  bass = s("saw", { attack = 0.002, decay = 0.14, sustain = 0.45, release = 0.04 }, { gain = 0.78, priority = 3 }),
+  stabs = s("brass", { attack = 0.003, decay = 0.18, sustain = 0.35, release = 0.08 }, { gain = 0.3, pan = 0.25, echo = 0.35 }),
   pad = false,
-  accordion = s("organ", { attack = 0.02, decay = 0.3, sustain = 0.8, release = 0.12 }, { vibrato = 0.15, echo = 0.4, gain = 0.6 }),
+  accordion = s("organ", { attack = 0.02, decay = 0.3, sustain = 0.8, release = 0.12 },
+                { vibrato = 0.15, glide = 0.02, echo = 0.4, gain = 0.55, priority = 3 }),
   bells = s("bell", { attack = 0.001, decay = 0.7, sustain = 0, release = 0.4 }, { gain = 0.4, pan = 0.4, echo = 0.7 }),
-  pluck = s("pluck", { attack = 0.001, decay = 10, sustain = 1, release = 0.2 }, { gain = 0.6, pan = 0.35, echo = 0.35 }),
-  kick = s("kick", drum, { key = 60, gain = 0.95 }),
-  snare = s("snare", drum, { key = 60, gain = 0.7, echo = 0.25 }),
-  hat = s("hat", drum, { key = 60, gain = 0.45, pan = 0.3 }),
-  crash = s("crash", drum, { key = 60, gain = 0.5, pan = -0.3, echo = 0.3 }),
-  tom = s("tom", drum, { gain = 0.75, echo = 0.2 }),
+  pluck = s("pluck", { attack = 0.001, decay = 10, sustain = 1, release = 0.2 }, { gain = 0.55, pan = 0.35, echo = 0.35 }),
+  kick = s("kick", drum, { key = 60, gain = 0.95, priority = 2 }),
+  snare = s("snare", drum, { key = 60, gain = 0.75, echo = 0.3, priority = 2 }),
+  hat = s("hat", drum, { key = 60, gain = 0.42, pan = 0.3 }),
+  open = s("openhat", drum, { key = 60, gain = 0.32, pan = 0.3 }),
+  crash = s("crash", drum, { key = 60, gain = 0.5, pan = -0.3, echo = 0.3, priority = 2 }),
+  tom = s("tom", drum, { gain = 0.75, echo = 0.2, priority = 2 }),
 }
 
 return I

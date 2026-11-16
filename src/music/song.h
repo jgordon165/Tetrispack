@@ -44,7 +44,7 @@ struct Envelope {
 // The SNES-style engine's built-in waveforms (generated, not sampled).
 enum class Wave {
     Pulse12, Pulse25, Pulse50, Saw, Triangle, Sine, Organ, Strings, EPiano, Bell, Brass,
-    Kick, Snare, Hat, Crash, Pluck, Tom, Count
+    Kick, Snare, Hat, Crash, Pluck, Tom, OpenHat, Count
 };
 
 enum class Kind { Opl, Fm4, PsgTone, PsgNoise, Sample };
@@ -60,6 +60,8 @@ struct Instrument {
     float gain = 1;            // 0-1
     float pan = 0;             // -1 left .. 1 right (Genesis: hard left/centre/right)
     float echo = 0;            // SNES: send to the echo, 0-1
+    float glide = 0;           // SNES: seconds to slide from the previous note (portamento)
+    int priority = 1;          // SNES: who keeps a voice when all eight are busy
     int fixedKey = -1;         // drums: always this MIDI key
 };
 
