@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
     // Game controllers are optional (and how the Xbox 360 build will play).
     if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0)
         std::fprintf(stderr, "controllers unavailable: %s\n", SDL_GetError());
+    if (!eng.audio.open()) std::fprintf(stderr, "playing without sound\n");
     if (!eng.video.open("Tetris for Windows", 640, 440, scale)) { SDL_Quit(); return 1; }
 
     lua_State* L = luaL_newstate();

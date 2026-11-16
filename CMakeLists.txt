@@ -42,6 +42,22 @@ elseif(APPLE)
     target_compile_definitions(lua_static PRIVATE LUA_USE_MACOSX)
 endif()
 
+# ---- ymfm (Yamaha FM chip emulators, BSD-3; we use its OPL3) ---------------
+# Pinned to a commit: the project has no release tags. SOURCE_SUBDIR points
+# at a folder with no CMakeLists.txt, so only the sources are fetched (ymfm's
+# own CMake would build every chip it has).
+FetchContent_Declare(ymfm
+    GIT_REPOSITORY https://github.com/aaronsgiles/ymfm.git
+    GIT_TAG        81aec25ccbb98f4873a255f7551ac4dadac59b4a
+    SOURCE_SUBDIR  sources-only)
+FetchContent_MakeAvailable(ymfm)
+add_library(ymfm_opl STATIC
+    ${ymfm_SOURCE_DIR}/src/ymfm_opl.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_adpcm.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_pcm.cpp)
+target_include_directories(ymfm_opl SYSTEM PUBLIC ${ymfm_SOURCE_DIR}/src)
+target_compile_options(ymfm_opl PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>)   # third-party code
+
 # ---- Warnings ----------------------------------------------------------------
 function(tetrispack_warnings target)
     if(MSVC)
@@ -61,13 +77,25 @@ add_library(tetrispack_formats STATIC
 target_include_directories(tetrispack_formats PUBLIC src)
 tetrispack_warnings(tetrispack_formats)
 
+# ---- Music (no SDL; shared by the engine and the tests) ---------------------
+add_library(tetrispack_music STATIC src/music/fm_synth.cpp src/music/song_lua.cpp)
+target_include_directories(tetrispack_music PUBLIC src)
+target_link_libraries(tetrispack_music PUBLIC ymfm_opl lua_static)
+tetrispack_warnings(tetrispack_music)
+
+# Renders the songs to .wav, to listen to them outside the game.
+add_executable(tetrispack_render_music tools/render_music.cpp)
+target_link_libraries(tetrispack_render_music PRIVATE tetrispack_music)
+tetrispack_warnings(tetrispack_render_music)
+
 # ---- Engine ----------------------------------------------------------------
 add_executable(tetrispack
     src/main.cpp
     src/video.cpp
     src/input.cpp
+    src/audio.cpp
     src/lua_api.cpp)
-target_link_libraries(tetrispack PRIVATE tetrispack_formats SDL2::SDL2-static SDL2::SDL2main lua_static)
+target_link_libraries(tetrispack PRIVATE tetrispack_formats tetrispack_music SDL2::SDL2-static SDL2::SDL2main lua_static)
 tetrispack_warnings(tetrispack)
 if(MSVC)
     # Debugging symbols for Release too (uploaded separately by the release workflow).
@@ -94,6 +122,11 @@ if(TETRISPACK_TESTS)
     target_link_libraries(tetrispack_tests PRIVATE tetrispack_formats)
     tetrispack_warnings(tetrispack_tests)
     add_test(NAME formats COMMAND tetrispack_tests)
+
+    add_executable(tetrispack_music_tests tests/test_music.cpp)
+    target_link_libraries(tetrispack_music_tests PRIVATE tetrispack_music)
+    tetrispack_warnings(tetrispack_music_tests)
+    add_test(NAME music COMMAND tetrispack_music_tests)
     if(DEFINED ENV{TETRISPACK_DATA})
         set_tests_properties(formats PROPERTIES ENVIRONMENT "TETRISPACK_DATA=$ENV{TETRISPACK_DATA}")
     endif()

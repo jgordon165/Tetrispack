@@ -8,6 +8,7 @@ local skin = require("game.skin")
 local layout = require("game.layout")
 local input = require("ui.input")
 local Panel = require("ui.panel")
+local jukebox = require("music.jukebox")
 
 local W, H = layout.w, layout.h
 -- The original blinks full rows by inverting them on 10 passes (5 flashes).
@@ -102,8 +103,12 @@ local function settingsPanel()
       set = function(v) preview = (v == "On") end },
     { label = "Players", values = { 1 }, get = function() return 1 end, set = function() end,
       enabled = false },
-    { label = "Sound", values = { "Off" }, get = function() return "Off" end, set = function() end,
-      enabled = false },
+    { label = "Music", values = jukebox.choices,
+      get = function() return jukebox.choice end,
+      set = function(v) jukebox.choice = v end },
+    { label = "Music Volume", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+      get = function() return jukebox.volume end,
+      set = function(v) jukebox.volume = v end },
     { label = "High Scores", values = { "Off" }, get = function() return "Off" end, set = function() end,
       enabled = false },
     { header = "HELP" },
@@ -210,6 +215,11 @@ function game.keypressed(key, rep)
 end
 
 function game.update(dt)
+  -- Music follows the level's background; it holds while the game is paused
+  -- (not while the menu is open, so settings can be heard) and stops at
+  -- game over.
+  jukebox.update(board.level, state ~= "over")
+  jukebox.pause(state == "pause" and #popups == 0)
   if state ~= "play" or #popups > 0 then return end
   if board.clearing and not blink then blink = { pass = BLINK_PASSES, t = 0 } end
   if blink then

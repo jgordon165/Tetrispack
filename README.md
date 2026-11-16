@@ -57,10 +57,22 @@ Without `TETRIS.EXE` it still runs, on a plain background.
 and opens the menu: a popup in the game's own style (black, in the
 playfield's gray frame) with one scrollable list. Game: New Game, Pause /
 Resume, Exit. Skill: Starting Level, Starting Rows. Options: Piece Preview
-(Players, Sound and High Scores are grayed out until the port has them).
-Help: How to Play, Controls, About. Up / Down (or the mouse wheel) choose,
+(Players and High Scores are grayed out until the port has them).
+Help: How to Play, Controls, About. Music and Music Volume are under
+Options. Up / Down (or the mouse wheel) choose,
 Left / Right change a setting, Enter (or A) picks, Esc (or B) goes back.
 Messages (Exit?, Game Over) use the same popup.
+
+**Music.** FM synthesis on an emulated OPL3 (ymfm), the Sound Blaster sound
+of Windows 3.x MIDI. Five pieces, one per pair of levels so the music
+changes with the background: *Korobeiniki* (the public-domain folk song
+behind Tetris, arranged for the port), *Program Manager*, *Samovar*,
+*Midnight Desktop* and *Steppe Express* (originals). Options > Music picks
+By Level, one song, or Off; Music Volume sets the level. The songs are
+text in `scripts/music/songs.lua` (a small MML, `scripts/music/mml.lua`),
+the instruments FM patches in `scripts/music/patches.lua`; to hear them
+outside the game, `tetrispack_render_music scripts out/` writes a .wav per
+song.
 
 **Controller** (SDL game controllers; the layout the Xbox 360 build will
 use): D-pad moves, Up or A rotates, Down or B drops, the shoulder buttons

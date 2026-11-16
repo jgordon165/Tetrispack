@@ -168,6 +168,42 @@ do
   check(ok, "starting rows fill the bottom 5 rows, with gaps")
 end
 
+
+-- Music: the MML parser, the songs, the level -> song choice.
+do
+  local mml = require("music.mml")
+  local notes, beats = mml.parse("o4 l8 c d4 e4. | r8 (ceg)2 ^4 [c16]4 > c < c | b- c+")
+  check(beats == 0.5 + 1 + 1.5 + 0.5 + 3 + 4 * 0.25 + 0.5 + 0.5 + 0.5 + 0.5, "mml lengths (" .. beats .. ")")
+  check(notes[1][3] == 60 and notes[2][3] == 62 and notes[3][3] == 64, "mml pitches, o4 c = 60")
+  check(math.abs(notes[2][2] - 1 * 7 / 8) < 1e-9, "mml gate q7")
+  check(notes[4][1] == 3.5 and notes[5][1] == 3.5 and notes[6][1] == 3.5, "mml chord starts together")
+  check(math.abs(notes[4][2] - 3 * 7 / 8) < 1e-9, "mml tie lengthens the chord")
+  local repeats = 0
+  for _, n in ipairs(notes) do if n[1] >= 6.5 and n[1] < 7.5 then repeats = repeats + 1 end end
+  check(repeats == 4, "mml repeat")
+  check(notes[11][3] == 72 and notes[12][3] == 60, "mml octave up and down")
+  check(notes[13][3] == 70 and notes[14][3] == 61, "mml flat and sharp")
+  check(not pcall(mml.parse, "c4 x"), "mml rejects junk")
+
+  local jukebox = require("music.jukebox")
+  for _, song in ipairs(jukebox.songs) do
+    local first
+    for _, t in ipairs(song.tracks) do
+      local _, len = mml.parse(t.mml)
+      first = first or len
+      check(len == first, song.name .. ": " .. t.patch .. " track as long as the others")
+    end
+    local b = jukebox.build(song)
+    check(#b.notes > 50 and b.length > 15 and b.length < 60, song.name .. " builds (" .. #b.notes .. " notes, " .. b.length .. " s)")
+  end
+  check(jukebox.songFor(1) == 1 and jukebox.songFor(2) == 1 and jukebox.songFor(5) == 3 and jukebox.songFor(10) == 5,
+        "a song per pair of levels")
+  jukebox.choice = "Samovar"; check(jukebox.songFor(1) == 3, "a chosen song")
+  jukebox.choice = "Off"; check(jukebox.songFor(1) == nil, "music off")
+  jukebox.choice = "By Level"
+  jukebox.update(1)   -- plays through the dummy audio driver without error
+end
+
 -- Layout: the playfield is where the original's WM_SIZE puts it.
 check(layout.grid.cw == 22 and layout.grid.ch == 19, "cell size 22x19 at 640x440")
 
