@@ -1,0 +1,38 @@
+# Build output
+/build/
+/build-*/
+out/
+.vs/
+*.user
+
+# Original game files are NEVER committed. Point the engine at your own copy
+# with --data <path>. These patterns are a safety net in case files get
+# copied into the tree by accident.
+data/
+gamedata/
+*.EXE
+*.exe
+*.HLP
+*.hlp
+*.BMP
+*.bmp
+*.ini
+*.INI
+*.ISO
+*.iso
+*.img
+*.IMG
+
+# Reverse-engineering output contains decompiled original code and extracted
+# resources; keep it local.
+re/output/
+re/ghidra_project/
+
+# Python
+__pycache__/
+*.pyc
+
+# CI / packaging output
+stage/
+dist/
+.deps/

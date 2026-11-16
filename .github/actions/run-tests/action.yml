@@ -1,0 +1,25 @@
+name: run-tests
+description: cross-platform action to run the Tetrispack tests
+
+inputs:
+  build_dir:
+    required: false
+    default: build
+  configuration:
+    description: CMake configuration (multi-config generators such as Visual Studio)
+    required: false
+    default: Release
+
+runs:
+  using: "composite"
+  steps:
+    # The repository contains no Tetris data, so only the data-free tests run
+    # here (NE and bitmap readers on executables built in memory, the Lua
+    # rules, booting into the attract mode). Tests marked [data] run locally
+    # when TETRISPACK_DATA is set at configure.
+    - name: Run tests
+      run: ctest --test-dir "${{inputs.build_dir}}" -C ${{inputs.configuration}} --output-on-failure
+      shell: pwsh
+      env:
+        SDL_VIDEODRIVER: dummy
+        SDL_AUDIODRIVER: dummy
