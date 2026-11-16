@@ -11,6 +11,7 @@ extern "C" {
 
 #include <SDL.h>
 #include <cstdio>
+#include <string>
 
 namespace {
 
@@ -109,16 +110,22 @@ int l_fill(lua_State* L) {
     return 0;
 }
 
-// tp.text(x, y, s, scale, r, g, b)
+Video::Font fontArg(lua_State* L, int i) {
+    const char* f = luaL_optstring(L, i, "small");
+    return std::string(f) == "system" ? Video::Font::System : Video::Font::Small;
+}
+
+// tp.text(x, y, s, scale, r, g, b [, "small" | "system"])
 int l_text(lua_State* L) {
     eng(L)->video.text(iarg(L, 1), iarg(L, 2), luaL_checkstring(L, 3),
                        static_cast<int>(luaL_optinteger(L, 4, 1)),
-                       u8arg(L, 5, 255), u8arg(L, 6, 255), u8arg(L, 7, 255));
+                       u8arg(L, 5, 255), u8arg(L, 6, 255), u8arg(L, 7, 255), fontArg(L, 8));
     return 0;
 }
 
+// tp.text_width(s [, scale [, font]])
 int l_text_width(lua_State* L) {
-    lua_pushinteger(L, Video::textWidth(luaL_checkstring(L, 1), static_cast<int>(luaL_optinteger(L, 2, 1))));
+    lua_pushinteger(L, Video::textWidth(luaL_checkstring(L, 1), static_cast<int>(luaL_optinteger(L, 2, 1)), fontArg(L, 3)));
     return 1;
 }
 

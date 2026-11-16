@@ -1,5 +1,8 @@
 #include "video.h"
 
+#include "font_system.h"
+
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 
@@ -24,6 +27,17 @@ constexpr Glyph kFont[] = {
     {'!', "010010010000010"}, {'/', "001001010100100"}, {'#', "101111101111101"},
 };
 
+const SysGlyph* sysGlyph(char c) {
+    for (const auto& g : kSystemFont)
+        if (g.c == c) return &g;
+    // Letters the font doesn't draw fall back to the other case, then a box.
+    const char alt = static_cast<char>(std::isupper(static_cast<unsigned char>(c)) ? std::tolower(static_cast<unsigned char>(c))
+                                                                                  : std::toupper(static_cast<unsigned char>(c)));
+    for (const auto& g : kSystemFont)
+        if (g.c == alt) return &g;
+    return nullptr;
+}
+
 const char* glyph(char c) {
     c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     for (const auto& g : kFont)
@@ -35,13 +49,15 @@ const char* glyph(char c) {
 
 Video::~Video() {
     for (auto* t : tex_) if (t) SDL_DestroyTexture(t);
+    if (canvas_) SDL_DestroyTexture(canvas_);
     if (ren_) SDL_DestroyRenderer(ren_);
     if (win_) SDL_DestroyWindow(win_);
 }
 
-bool Video::open(const std::string& title, int canvasW, int canvasH, int scale) {
+bool Video::open(const std::string& title, int canvasW, int canvasH, double scale) {
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");  // sharp pixels, like the original zoomed
     win_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                            canvasW * scale, canvasH * scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+                            static_cast<int>(canvasW * scale), static_cast<int>(canvasH * scale), SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!win_) { std::fprintf(stderr, "window: %s\n", SDL_GetError()); return false; }
     ren_ = SDL_CreateRenderer(win_, -1, SDL_RENDERER_PRESENTVSYNC);
     if (!ren_) ren_ = SDL_CreateRenderer(win_, -1, SDL_RENDERER_SOFTWARE);
@@ -56,14 +72,15 @@ void Video::setTitle(const std::string& t) { if (win_) SDL_SetWindowTitle(win_, 
 void Video::setCanvas(int w, int h) {
     cw_ = w;
     ch_ = h;
-    SDL_RenderSetLogicalSize(ren_, w, h);
-    SDL_RenderSetIntegerScale(ren_, SDL_FALSE);
+    if (canvas_) SDL_DestroyTexture(canvas_);
+    canvas_ = SDL_CreateTexture(ren_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    if (!canvas_) std::fprintf(stderr, "canvas: %s\n", SDL_GetError());
+    SDL_SetRenderTarget(ren_, canvas_);
 }
 
 void Video::clear(uint8_t r, uint8_t g, uint8_t b) {
-    SDL_SetRenderDrawColor(ren_, 0, 0, 0, 255);
-    SDL_RenderClear(ren_);  // letterbox bars
-    fill(0, 0, cw_, ch_, r, g, b);
+    SDL_SetRenderDrawColor(ren_, r, g, b, 255);
+    SDL_RenderClear(ren_);
 }
 
 void Video::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
@@ -72,8 +89,35 @@ void Video::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b, ui
     SDL_RenderFillRect(ren_, &rc);
 }
 
-void Video::text(int x, int y, const std::string& s, int scale, uint8_t r, uint8_t g, uint8_t b) {
+int Video::textWidth(const std::string& s, int scale, Font font) {
+    if (s.empty()) return 0;
+    if (font == Font::Small) return static_cast<int>(s.size()) * 4 * scale - scale;
+    int w = 0;
+    for (char c : s) {
+        const SysGlyph* g = sysGlyph(c);
+        w += ((g ? g->width : 5) + 1) * scale;
+    }
+    return w - scale;
+}
+
+void Video::text(int x, int y, const std::string& s, int scale, uint8_t r, uint8_t g, uint8_t b, Font font) {
     SDL_SetRenderDrawColor(ren_, r, g, b, 255);
+    if (font == Font::System) {
+        for (char c : s) {
+            const SysGlyph* gl = sysGlyph(c);
+            const int w = gl ? gl->width : 5;
+            for (int row = 0; row < 10; ++row) {
+                const char* bits = gl ? gl->rows[row] : (row == 0 || row == 9 ? "#####" : "#...#");
+                for (int col = 0; bits[col] && col < w; ++col) {
+                    if (bits[col] != '#') continue;
+                    const SDL_Rect px{x + col * scale, y + row * scale, scale, scale};
+                    SDL_RenderFillRect(ren_, &px);
+                }
+            }
+            x += (w + 1) * scale;
+        }
+        return;
+    }
     for (char c : s) {
         if (const char* rows = glyph(c)) {
             for (int i = 0; i < 15; ++i) {
@@ -100,4 +144,32 @@ void Video::draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int
     SDL_RenderCopy(ren_, tex_[handle], &src, &dst);
 }
 
-void Video::present() { SDL_RenderPresent(ren_); }
+// The canvas, scaled to fit the window with its aspect kept (letterboxed).
+void Video::compose() {
+    SDL_SetRenderTarget(ren_, nullptr);
+    SDL_SetRenderDrawColor(ren_, 0, 0, 0, 255);
+    SDL_RenderClear(ren_);
+    int ow = 0, oh = 0;
+    SDL_GetRendererOutputSize(ren_, &ow, &oh);
+    const double s = std::min(double(ow) / cw_, double(oh) / ch_);
+    const int dw = static_cast<int>(cw_ * s + 0.5), dh = static_cast<int>(ch_ * s + 0.5);
+    const SDL_Rect dst{(ow - dw) / 2, (oh - dh) / 2, dw, dh};
+    SDL_RenderCopy(ren_, canvas_, nullptr, &dst);
+}
+
+void Video::present() {
+    SDL_RenderPresent(ren_);
+    SDL_SetRenderTarget(ren_, canvas_);
+}
+
+bool Video::screenshot(const std::string& path) {
+    // The window as shown (the canvas scaled to it).
+    int ow = 0, oh = 0;
+    SDL_GetRendererOutputSize(ren_, &ow, &oh);
+    SDL_Surface* full = SDL_CreateRGBSurfaceWithFormat(0, ow, oh, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!full) return false;
+    SDL_RenderReadPixels(ren_, nullptr, SDL_PIXELFORMAT_ARGB8888, full->pixels, full->pitch);
+    const bool ok = SDL_SaveBMP(full, path.c_str()) == 0;
+    SDL_FreeSurface(full);
+    return ok;
+}

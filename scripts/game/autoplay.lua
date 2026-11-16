@@ -1,5 +1,5 @@
--- A small placement search that plays the attract mode on the title screen
--- (and lets the boot test exercise the rules for a while without input).
+-- A small placement search that plays by itself: used by the tests to run
+-- the rules for a few hundred pieces.
 local pieces = require("game.pieces")
 
 local autoplay = {}
@@ -45,7 +45,7 @@ function autoplay.choose(board)
   local p = board.piece
   local best, bestScore = nil, -math.huge
   for rot = 1, #pieces.rotations[p.name] do
-    for x = -2, board.w do
+    for x = -3, board.w + 2 do
       local q = landing(board, { name = p.name, rot = rot, x = x, y = p.y })
       if q then
         local s = evaluate(board, q)
@@ -58,6 +58,7 @@ end
 
 -- One move toward the target per call: rotate first, then slide, then drop.
 function autoplay.act(board, target)
+  if board.clearing then board:collapse(); return true end
   local p = board.piece
   if p.rot ~= target.rot then
     if not board:rotate(1) then board:drop(); return true end

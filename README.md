@@ -35,18 +35,26 @@ Pack install folder works, as does the file itself):
 build\Release\tetrispack.exe --data C:\WEP
 ```
 
-Without it the game still runs, with flat-coloured blocks, so the engine
-and the rules can be worked on before the original's art is wired in.
+It opens laid out like the original maximized on a 640x480 screen, shown at
+1.5x (960x660; `--scale` changes it): the level's background bitmap tiled
+over the window, the score panel, the playfield in its gray frame, the
+original's block colours and bevel, and full rows blinking before they go.
+Without `TETRIS.EXE` it still runs, on a plain background.
 
 | Key | |
 |---|---|
-| Enter / F2 | New game |
-| Left / Right | Move |
-| Up | Rotate |
-| Down | Soft drop (hold) |
-| Space | Drop |
-| P / F3 | Pause |
-| Esc | Back to the title (quits from the title) |
+| F2 (or Enter) | New game |
+| 1-9, 0 | Starting level 1-10 (before a game) |
+| Left / Right (keypad 4 / 6) | Move |
+| Up (keypad 8 / 5) | Rotate |
+| Down, Insert, Space (keypad 2 / 0) | Drop |
+| End / Page Down (keypad 1 / 3) | Slide to the wall |
+| F3 | Pause |
+| F5 | Piece preview on / off |
+| Esc | End the game; quit |
+
+What comes from the original executable (layout, colours, timer per level,
+scoring, the blink) is written up in `docs/original.md`.
 
 ## Layout
 
@@ -58,10 +66,14 @@ and the rules can be worked on before the original's art is wired in.
 | `tests/` | Format tests on executables built in memory, and Lua rule tests |
 | `re/`, `tools/` | Reverse-engineering workflow: identify, list and extract resources, decompile with Ghidra |
 | `docs/formats.md` | NE and resource formats as the port reads them |
+| `docs/original.md` | What the port takes from TETRIS.EXE 2.00: layout, colours, rules |
 
-Values in `scripts/game/board.lua` marked *verify* (scoring, gravity per
-level, level-up rule) are placeholders until confirmed from the original;
-`re/README.md` describes how.
+Screenshots for comparing with the original (not part of ctest):
+
+```
+TETRISPACK_SCRIPTS=scripts TETRISPACK_LEVEL=5 tetrispack --scripts tests/screens \
+    --data <your TETRIS folder> --frames 600 --screenshot level5.bmp
+```
 
 ## CI and releases
 

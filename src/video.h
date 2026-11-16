@@ -12,7 +12,7 @@
 class Video {
 public:
     ~Video();
-    bool open(const std::string& title, int canvasW, int canvasH, int scale);
+    bool open(const std::string& title, int canvasW, int canvasH, double scale);
     void setTitle(const std::string& t);
     void setCanvas(int w, int h);
     int canvasW() const { return cw_; }
@@ -20,20 +20,26 @@ public:
 
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
-    // The built-in 3x5 font (digits, A-Z and a little punctuation), so the
-    // port can show text without any of the original's fonts.
-    void text(int x, int y, const std::string& s, int scale, uint8_t r, uint8_t g, uint8_t b);
-    static int textWidth(const std::string& s, int scale) { return s.empty() ? 0 : static_cast<int>(s.size()) * 4 * scale - scale; }
+    // Built-in fonts, so the port can show text without the original's:
+    // Small, 3x5 (digits, A-Z, a little punctuation); System, proportional
+    // and bold in the style of the Windows 3.x System font (font_system.h).
+    enum class Font { Small, System };
+    void text(int x, int y, const std::string& s, int scale, uint8_t r, uint8_t g, uint8_t b, Font font = Font::Small);
+    static int textWidth(const std::string& s, int scale, Font font = Font::Small);
 
     // Uploads a decoded bitmap; returns a handle for draw(), or -1.
     int addImage(const tp::Image& img);
     void draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh);
 
+    void compose();   // canvas -> window, before screenshot() and present()
     void present();
+    // Saves what's in the window (the canvas as scaled to it) as a .bmp.
+    bool screenshot(const std::string& path);
 
 private:
     SDL_Window* win_ = nullptr;
     SDL_Renderer* ren_ = nullptr;
     std::vector<SDL_Texture*> tex_;
+    SDL_Texture* canvas_ = nullptr;  // everything is drawn here at canvas size, then scaled to the window
     int cw_ = 0, ch_ = 0;
 };
