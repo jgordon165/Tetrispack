@@ -39,8 +39,7 @@ Work from the resources inward:
    per level; that confirms `Board.gravity` in `scripts/game/board.lua`.
 3. **Rules**: piece generation (the random number routine), rotation,
    scoring per lines cleared and per level, the level-up rule, the
-   "starting height" option. Every value marked *verify* in
-   `scripts/game/board.lua` should end up confirmed here.
+   "starting height" option. Findings go in `docs/original.md`.
 4. **High scores**: where they are stored (`WIN.INI` via
    `WriteProfileString`, or a file) and their format.
 

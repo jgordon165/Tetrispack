@@ -1,18 +1,18 @@
 -- The playfield and its rules, with no drawing or input (so the tests can
--- drive it directly). Values marked "verify" are placeholders until they're
--- confirmed from the original executable.
+-- drive it directly). Numbers come from TETRIS.EXE 2.00 (docs/original.md).
 local pieces = require("game.pieces")
 
 local Board = {}
 Board.__index = Board
 
--- Points per lines cleared at once, times the level. Hard Drop's wiki lists
--- 200/400/800 for two/three/four rows in this version; the single-row value
--- and the level factor are "verify".
+-- Points for rows cleared at once (no level factor in the original).
 Board.line_points = { 100, 200, 400, 800 }
-Board.lines_per_level = 10        -- verify
--- Seconds per row of gravity by level (verify against the original's timer).
-Board.gravity = { 0.80, 0.72, 0.63, 0.55, 0.47, 0.38, 0.30, 0.22, 0.13, 0.10, 0.08 }
+-- Points for every piece that lands: 6 x level.
+Board.piece_points = 6
+-- Gravity timer per level, milliseconds per row (the original's SetTimer values).
+Board.gravity_ms = { 600, 600, 520, 450, 381, 306, 230, 155, 84, 50 }
+-- Total lines that take you to level 2, 3, ... 10 (never down).
+Board.level_lines = { 10, 16, 24, 34, 36, 50, 64, 78, 92 }
 
 function Board.new(opts)
   opts = opts or {}
@@ -24,10 +24,9 @@ function Board.new(opts)
   b.score, b.lines = 0, 0
   b.over = false
   b.fall = 0
+  b.clearing = nil   -- rows waiting to be removed (the blink plays meanwhile)
   b.grid = {}
-  for y = 0, b.h - 1 do
-    b.grid[y] = {}
-  end
+  for y = 0, b.h - 1 do b.grid[y] = {} end
   b.next = b:random_piece()
   b:spawn()
   return b
@@ -54,7 +53,8 @@ end
 function Board:spawn()
   local name = self.next
   self.next = self:random_piece()
-  self.piece = { name = name, rot = 1, x = math.floor(self.w / 2) - 2, y = 0 }
+  self.piece = { name = name, rot = 1, x = pieces.spawn_x[name], y = 0 }
+  self.fall = 0
   if not self:fits(self.piece) then self.over = true end
 end
 
@@ -63,8 +63,10 @@ local function moved(p, dx, dy, drot)
   return { name = p.name, rot = (p.rot - 1 + (drot or 0)) % n + 1, x = p.x + dx, y = p.y + dy }
 end
 
+function Board:busy() return self.over or self.clearing ~= nil end
+
 function Board:try(dx, dy, drot)
-  if self.over then return false end
+  if self:busy() then return false end
   local p = moved(self.piece, dx, dy, drot)
   if self:fits(p) then self.piece = p; return true end
   return false
@@ -73,67 +75,89 @@ end
 function Board:left() return self:try(-1, 0) end
 function Board:right() return self:try(1, 0) end
 function Board:rotate(dir) return self:try(0, 0, dir or 1) end
+-- Home / End in the original: slide all the way.
+function Board:slide(dx) while self:try(dx, 0) do end end
 
--- Moves down a row; locks the piece when it can't. Returns rows cleared.
+-- Moves down a row; lands the piece when it can't. Returns rows filled.
 function Board:step()
-  if self.over then return 0 end
+  if self:busy() then return 0 end
   if self:try(0, 1) then return 0 end
   return self:lock()
 end
 
 function Board:drop()
-  if self.over then return 0 end
+  if self:busy() then return 0, 0 end
   local rows = 0
   while self:try(0, 1) do rows = rows + 1 end
   return self:lock(), rows
 end
 
+function Board:full_rows()
+  local rows = {}
+  for y = 0, self.h - 1 do
+    local full = true
+    for x = 0, self.w - 1 do
+      if not self.grid[y][x] then full = false; break end
+    end
+    if full then rows[#rows + 1] = y end
+  end
+  return rows
+end
+
+-- Lands the piece. Full rows are left in place, listed in self.clearing,
+-- until collapse() (so the blink can show them); returns how many.
 function Board:lock()
   for _, c in ipairs(self:cells()) do
     local y = self.piece.y + c.y
     if y < 0 then self.over = true; return 0 end
     self.grid[y][self.piece.x + c.x] = self.piece.name
   end
-  local cleared = self:clear_lines()
-  if cleared > 0 then
-    self.score = self.score + (Board.line_points[cleared] or 0) * self.level
-    self.lines = self.lines + cleared
-    self.level = math.max(self.level, math.floor(self.lines / Board.lines_per_level) + 1)
+  self.score = self.score + Board.piece_points * self.level
+  local rows = self:full_rows()
+  if #rows > 0 then
+    self.clearing = rows
+    return #rows
   end
   self:spawn()
-  return cleared
+  return 0
 end
 
-function Board:full(y)
-  for x = 0, self.w - 1 do
-    if not self.grid[y][x] then return false end
-  end
-  return true
-end
-
-function Board:clear_lines()
-  local cleared, y = 0, self.h - 1
-  while y >= 0 do
-    if self:full(y) then
-      for yy = y, 1, -1 do self.grid[yy] = self.grid[yy - 1] end
-      self.grid[0] = {}
-      cleared = cleared + 1
-    else
-      y = y - 1
+-- Removes the full rows, scores them and brings in the next piece.
+function Board:collapse()
+  local rows = self.clearing
+  if not rows then return 0 end
+  self.clearing = nil
+  local full = {}
+  for _, y in ipairs(rows) do full[y] = true end
+  local dst = self.h - 1
+  for y = self.h - 1, 0, -1 do
+    if not full[y] then
+      self.grid[dst] = self.grid[y]
+      dst = dst - 1
     end
   end
-  return cleared
+  for y = dst, 0, -1 do self.grid[y] = {} end
+
+  local n = #rows
+  self.score = self.score + (Board.line_points[n] or Board.line_points[#Board.line_points])
+  self.lines = self.lines + n
+  for i, need in ipairs(Board.level_lines) do
+    if self.lines >= need and self.level < i + 1 then self.level = i + 1 end
+  end
+  self:spawn()
+  return n
 end
 
 function Board:gravity_delay()
-  return Board.gravity[math.min(self.level, #Board.gravity)]
+  return Board.gravity_ms[math.min(self.level, #Board.gravity_ms)] / 1000
 end
 
 -- Advances gravity by dt seconds.
 function Board:update(dt)
+  if self:busy() then return end
   self.fall = self.fall + dt
   local d = self:gravity_delay()
-  while self.fall >= d and not self.over do
+  while self.fall >= d and not self:busy() do
     self.fall = self.fall - d
     self:step()
   end

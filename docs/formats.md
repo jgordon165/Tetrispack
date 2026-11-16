@@ -58,8 +58,7 @@ or RLE4/RLE8. Decoded by `src/formats/dib.cpp`.
 Blocks of 16 strings; block *n* holds ids `(n-1)*16 ... (n-1)*16+15`. Each
 string is a length byte then the characters (an empty entry is a 0 byte).
 
-## Still to identify (from your copy)
+## The game itself
 
-- Which BITMAP holds the blocks, and the layout of the playfield window.
-- Gravity timer per level, scoring per level, the level-up rule, the
-  "start height" option, high-score storage (see `re/README.md`).
+What the port takes from the 2.00 executable (block colours, layout, timer,
+scoring, the line-clear blink) is in `original.md`.

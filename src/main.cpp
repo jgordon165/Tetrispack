@@ -5,7 +5,8 @@
 // or shipped.
 //
 // Usage: tetrispack --data <folder with TETRIS.EXE, or the file>
-//                   [--scale N] [--scripts <dir>] [--frames N]   (N: headless testing)
+//                   [--scale N] [--scripts <dir>]
+//                   [--frames N [--screenshot out.bmp]]   (headless testing)
 
 #include "engine.h"
 #include "input.h"
@@ -91,16 +92,18 @@ static void addPackagePath(lua_State* L, const std::string& dir) {
 int main(int argc, char** argv) {
     Engine eng;
     std::string scripts;
-    int scale = 2;
+    double scale = 1.5;  // the 640x440 client at 960x660, as the original looks maximized on a modern screen
     long maxFrames = -1;
+    std::string shot;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         auto next = [&]() -> std::string { return i + 1 < argc ? argv[++i] : ""; };
         if      (a == "--data")    eng.dataArg = next();
         else if (a == "--scripts") scripts = next();
-        else if (a == "--scale")   scale = std::max(1, std::atoi(next().c_str()));
+        else if (a == "--scale")   scale = std::max(1.0, std::atof(next().c_str()));
         else if (a == "--frames")  maxFrames = std::atol(next().c_str());
+        else if (a == "--screenshot") shot = next();
         else if (a == "--help" || a == "-h") {
             std::printf("tetrispack --data <folder with your TETRIS.EXE, or the file> [--scale N]\n");
             return 0;
@@ -118,7 +121,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
-    if (!eng.video.open("Tetrispack", 320, 240, scale)) { SDL_Quit(); return 1; }
+    if (!eng.video.open("Tetris for Windows", 640, 440, scale)) { SDL_Quit(); return 1; }
 
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
@@ -154,6 +157,9 @@ int main(int argc, char** argv) {
         lua_pushnumber(L, dt);
         ok = callLua(L, "update", 1) && ok;
         ok = callLua(L, "draw", 0) && ok;
+        eng.video.compose();
+        if (!shot.empty() && headless && frame == maxFrames - 1 && !eng.video.screenshot(shot))
+            std::fprintf(stderr, "screenshot failed: %s\n", SDL_GetError());
         eng.video.present();
     }
 
