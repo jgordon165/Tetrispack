@@ -150,6 +150,18 @@ int main(int argc, char** argv) {
                 lua_pushstring(L, input::keyName(ev.key.keysym.sym).c_str());
                 lua_pushboolean(L, ev.key.repeat != 0);
                 ok = callLua(L, "keypressed", 2) && ok;
+            } else if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEWHEEL) {
+                // "mouse left" / "mouse middle" / "mouse right", "mouse wheelup" / "mouse wheeldown"
+                const char* name = nullptr;
+                if (ev.type == SDL_MOUSEWHEEL) name = ev.wheel.y > 0 ? "mouse wheelup" : ev.wheel.y < 0 ? "mouse wheeldown" : nullptr;
+                else if (ev.button.button == SDL_BUTTON_LEFT) name = "mouse left";
+                else if (ev.button.button == SDL_BUTTON_MIDDLE) name = "mouse middle";
+                else if (ev.button.button == SDL_BUTTON_RIGHT) name = "mouse right";
+                if (name) {
+                    lua_pushstring(L, name);
+                    lua_pushboolean(L, 0);
+                    ok = callLua(L, "keypressed", 2) && ok;
+                }
             } else if (ev.type == SDL_CONTROLLERDEVICEADDED) {
                 SDL_GameControllerOpen(ev.cdevice.which);
             } else if (ev.type == SDL_CONTROLLERBUTTONDOWN) {

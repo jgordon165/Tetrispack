@@ -1,22 +1,24 @@
--- Raw keys (SDL key names, lower case; controller buttons as "pad <button>")
--- to actions, per context. One place to change the controls, and where the
--- Xbox 360 build's buttons come in: Start opens the menu.
+-- Raw inputs to actions, per context: keys (SDL key names, lower case),
+-- controller buttons ("pad <button>") and mouse buttons ("mouse right",
+-- "mouse wheelup"). The game and its popups only ever see the actions, so the
+-- same code runs with a keyboard, a controller (the Xbox 360 build: Start
+-- opens the menu) or a mouse.
 local input = {}
 
 -- Anywhere, whatever is on screen.
 input.global = {
-  f12 = "menu", ["pad start"] = "menu",
+  f12 = "menu", ["pad start"] = "menu", ["mouse right"] = "menu",
 }
 
--- Menus and dialogs.
+-- Popups (the settings menu and messages).
 input.ui = {
+  ["mouse wheelup"] = "up", ["mouse wheeldown"] = "down", ["mouse left"] = "accept",
   up = "up", ["keypad 8"] = "up", ["pad dpup"] = "up",
   down = "down", ["keypad 2"] = "down", ["pad dpdown"] = "down",
   left = "left", ["keypad 4"] = "left", ["pad dpleft"] = "left",
   right = "right", ["keypad 6"] = "right", ["pad dpright"] = "right",
   ["return"] = "accept", ["keypad enter"] = "accept", space = "accept", ["pad a"] = "accept",
   escape = "back", backspace = "back", ["pad b"] = "back",
-  tab = "next",
 }
 
 -- Playing (the original's keys: numpad layout, Down drops, End / Page Down

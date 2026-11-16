@@ -126,54 +126,32 @@ do
 end
 
 
--- Popup menu: navigation, submenus, mnemonics, disabled items.
+-- The popup panel: scrolling list, values, actions, back.
 do
-  local Menu = require("ui.menu")
+  local Panel = require("ui.panel")
   local input = require("ui.input")
-  local log = {}
-  local m = Menu.new({
-    { label = "&Game", sub = {
-      { label = "&New", accel = "F2", action = function() log[#log + 1] = "new" end },
-      { separator = true },
-      { label = "&High Scores...", enabled = false, action = function() log[#log + 1] = "hs" end },
-    } },
-    { label = "&Skill", sub = {
-      { label = "Starting &Level", sub = {
-        { label = "&1", radio = true, action = function() log[#log + 1] = "l1" end },
-        { label = "&2", radio = true, action = function() log[#log + 1] = "l2" end },
-      } },
-    } },
-  })
-  local closed = 0
-  m.onclose = function() closed = closed + 1 end
   check(input.action("game", "escape") == "menu" and input.action("game", "f12") == "menu"
-        and input.action("game", "pad start") == "menu", "Esc, F12 and Start open the menu")
-  m:open(10, 10)
-  check(m:isOpen() and m:path()[1] == "Game", "opens on Game")
-  m:key("down"); check(m:path()[1] == "Skill", "down moves")
-  m:key("down"); check(m:path()[1] == "Game", "wraps")
-  m:key("right"); check(#m:path() == 2 and m:path()[2] == "New", "right opens the submenu")
-  m:key("down"); check(m:path()[2] == "High Scores...", "down skips the separator")
-  m:key("accept"); check(m:isOpen() and #log == 0, "disabled item does nothing")
-  m:key("up"); m:key("accept")
-  check(not m:isOpen() and log[1] == "new" and closed == 1, "accept runs the action and closes")
-  m:open(10, 10)
-  m:key(nil, "s"); m:key(nil, "l"); m:key("down"); m:key("accept")
-  check(log[2] == "l2", "mnemonics and cascades: Skill > Starting Level > 2")
-  m:open(10, 10)
-  m:key("right"); m:key("left"); check(#m:path() == 1 and m:isOpen(), "left closes a submenu")
-  m:key("back"); check(not m:isOpen(), "Esc at the top closes the menu")
-  m:open(10, 10); m:key("right"); m:key("menu"); check(not m:isOpen(), "F12 / Start closes it all")
-end
-
--- Dialogs: buttons, focus, Esc picks the last.
-do
-  local Dialog = require("ui.dialog")
-  local got
-  local d = Dialog.new({ lines = { "End Tetris?" }, buttons = { "&Yes", "&No" }, onbutton = function(i) got = i end })
-  d:key("right"); d:key("accept"); check(got == 2 and d.closed, "focus moves, Enter presses")
-  d = Dialog.new({ buttons = { "&Yes", "&No" }, onbutton = function(i) got = i end })
-  d:key("back"); check(got == 2, "Esc picks the last button")
+        and input.action("game", "pad start") == "menu" and input.action("game", "mouse right") == "menu",
+        "Esc, F12, Start and right click open the menu")
+  local log, level = {}, 1
+  local rows = { { header = "GAME" }, { label = "New", action = function() log[#log + 1] = "new" end },
+                 { label = "Off", action = function() end, enabled = false },
+                 { header = "SKILL" },
+                 { label = "Level", values = { 1, 2, 3 }, get = function() return level end,
+                   set = function(v) level = v end } }
+  for k = 1, 10 do rows[#rows + 1] = { label = "Item " .. k, action = function() log[#log + 1] = k end } end
+  local p = Panel.new({ rows = rows, visible = 6 })
+  check(p:current() == "New", "starts on the first choice, past the header")
+  p:key("down"); check(p:current() == "Level", "skips headers and disabled rows")
+  p:key("right"); check(level == 2, "right raises a value")
+  p:key("left"); p:key("left"); check(level == 3, "left wraps round")
+  p:key("accept"); check(level == 1, "accept steps a value")
+  for _ = 1, 10 do p:key("down") end
+  check(p:current() == "Item 10" and p.top == #rows - 5, "scrolls to keep the choice in view")
+  p:key("down"); check(p:current() == "New" and p.top == 1, "wraps to the top")
+  p:key("up"); check(p:current() == "Item 10", "wraps to the bottom")
+  p:key("accept"); check(log[1] == 10, "accept runs the action")
+  check(p:key("back") == "close" and p:key("menu") == "close", "back and menu close it")
 end
 
 -- Starting rows: partly filled, never full.
