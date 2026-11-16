@@ -1,10 +1,11 @@
-// Renders the soundtrack to .wav files, to listen to the songs (or try a
-// patch) without playing the game:
-//   tetrispack_render_music <scripts dir> <out dir> [seconds]
-// writes one file per song (scripts/music/songs.lua), each looped for
-// `seconds` (default: one pass of the song).
+// Renders the soundtrack to .wav files, to listen to the songs (or try an
+// instrument) without playing the game:
+//   tetrispack_render_music <scripts dir> <out dir> [style] [seconds]
+// writes one file per song (scripts/music/songs.lua) for each style
+// (snes, genesis, opl3; default all), each one pass of the song unless
+// `seconds` is given.
 
-#include "music/fm_synth.h"
+#include "music/player.h"
 #include "music/song_lua.h"
 
 extern "C" {
@@ -37,13 +38,18 @@ int main(int argc, char** argv) {
         return 2;
     }
     const std::string scripts = argv[1], out = argv[2];
-    const double seconds = argc > 3 ? std::atof(argv[3]) : 0;
+    const std::string only = argc > 3 ? argv[3] : "";
+    const double seconds = argc > 4 ? std::atof(argv[4]) : 0;
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
     const std::string setup = "package.path = '" + scripts + "/?.lua;' .. package.path\n"
         "local j = require('music.jukebox')\n"
         "local out = {}\n"
-        "for i, s in ipairs(j.songs) do out[i] = { name = s.name, song = j.build(s) } end\n"
+        "for _, style in ipairs(j.styles) do\n"
+        "  for i, s in ipairs(j.songs) do\n"
+        "    out[#out + 1] = { name = i .. '_' .. s.name .. '_' .. style.id, style = style.id, song = j.build(s, style.id) }\n"
+        "  end\n"
+        "end\n"
         "return out\n";
     if (luaL_dostring(L, setup.c_str()) != LUA_OK) {
         std::fprintf(stderr, "lua: %s\n", lua_tostring(L, -1));
@@ -56,11 +62,15 @@ int main(int argc, char** argv) {
         lua_getfield(L, -1, "name");
         std::string name = lua_tostring(L, -1);
         lua_pop(L, 1);
+        lua_getfield(L, -1, "style");
+        const std::string style = lua_tostring(L, -1);
+        lua_pop(L, 1);
+        if (!only.empty() && only != style) { lua_pop(L, 1); continue; }
         lua_getfield(L, -1, "song");
         auto song = music::songFromLua(L, -1);
         lua_pop(L, 2);
 
-        music::FmSynth synth;
+        music::Player synth;
         synth.setVolume(1.0f);
         synth.play(song, 0);
         const double len = (seconds > 0 ? seconds : song->length) + 1.5;  // + the last notes' release
@@ -69,7 +79,7 @@ int main(int argc, char** argv) {
         int peak = 0;
         for (int16_t v : pcm) peak = std::max(peak, std::abs(int(v)));
         for (auto& c : name) if (c == ' ') c = '_';
-        const std::string path = out + "/" + std::to_string(i) + "_" + name + ".wav";
+        const std::string path = out + "/" + name + ".wav";
         writeWav(path, pcm, rate);
         std::printf("%s: %.1f s, %zu notes, peak %d\n", path.c_str(), song->length, song->notes.size(), peak);
     }

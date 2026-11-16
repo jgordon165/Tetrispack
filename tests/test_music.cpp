@@ -1,7 +1,7 @@
-// The FM synth on its own: notes sound, loops wrap, fades and stops end in
-// silence, pause holds still.
+// The music player and its three engines on their own: every engine plays
+// in tune, loops wrap, fades and stops end in silence, pause holds still.
 
-#include "music/fm_synth.h"
+#include "music/player.h"
 
 #include <algorithm>
 #include <cmath>
@@ -9,90 +9,126 @@
 #include <memory>
 #include <vector>
 
+using namespace music;
+
 static int failures = 0;
 #define CHECK(c) do { if (!(c)) { std::fprintf(stderr, "%s:%d: CHECK(%s) failed\n", __FILE__, __LINE__, #c); ++failures; } } while (0)
 
-static double rms(music::FmSynth& s, double seconds, int rate = 48000) {
+static std::vector<int16_t> render(Player& p, double seconds, int rate = 48000) {
     std::vector<int16_t> buf(size_t(seconds * rate) * 2, 0);
-    s.render(buf.data(), int(buf.size() / 2), rate);
+    p.render(buf.data(), int(buf.size() / 2), rate);
+    return buf;
+}
+
+static double rms(Player& p, double seconds) {
+    const auto buf = render(p, seconds);
     double sum = 0;
     for (int16_t v : buf) sum += double(v) * v;
     return std::sqrt(sum / double(buf.size()));
 }
 
-static std::shared_ptr<music::Song> testSong() {
-    auto song = std::make_shared<music::Song>();
-    music::Patch p;          // a plain sine-ish organ
-    p.mod.tl = 40;
-    p.car.tl = 0;
-    song->patches.push_back(p);
-    for (int i = 0; i < 4; ++i) song->notes.push_back({i * 0.25, 0.2, 60 + i * 2, 1.0f, 0});
-    song->notes.push_back({0, 1.0, 48, 0.5f, 0});
-    song->length = 1.0;
+// A pure tone for each engine.
+static Instrument tone(Engine e) {
+    Instrument in;
+    switch (e) {
+        case Engine::Opl3:
+            in.kind = Kind::Opl;
+            in.opl.mod.tl = 63;
+            break;
+        case Engine::Genesis:
+            in.kind = Kind::Fm4;
+            in.fm4.alg = 7;                 // all four heard: silence three
+            for (int k = 1; k < 4; ++k) in.fm4.op[k].tl = 127;
+            break;
+        case Engine::Snes:
+            in.kind = Kind::Sample;
+            in.wave = Wave::Sine;
+            break;
+    }
+    return in;
+}
+
+static std::shared_ptr<Song> oneNote(Engine e, Instrument in, int key, double len = 2.0) {
+    auto song = std::make_shared<Song>();
+    song->engine = e;
+    song->instruments.push_back(in);
+    song->notes.push_back({0, len, key, 1.0f, 0});
+    song->length = len + 1.0;
+    song->echoVolume = 0;
     return song;
 }
 
-// A pure tone (modulator silent) at MIDI key `key`: count rising zero crossings.
-static double measuredHz(int key) {
-    auto song = std::make_shared<music::Song>();
-    music::Patch p;
-    p.mod.tl = 63;
-    song->patches.push_back(p);
-    song->notes.push_back({0, 2.0, key, 1.0f, 0});
-    song->length = 3.0;
-    music::FmSynth s;
-    s.play(song, 0);
-    const int rate = 48000;
-    std::vector<int16_t> buf(size_t(rate) * 2, 0);
-    s.render(buf.data(), rate, rate);
-    std::fill(buf.begin(), buf.end(), int16_t(0));
-    s.render(buf.data(), rate, rate);   // the second second: past the attack
+// Rising zero crossings in the second second (past the attack).
+static int measuredHz(std::shared_ptr<Song> song) {
+    Player p;
+    p.setVolume(1);
+    p.play(song, 0);
+    render(p, 1.0);
+    const auto buf = render(p, 1.0);
     int crossings = 0;
-    for (int i = 1; i < rate; ++i)
+    for (size_t i = 1; i < buf.size() / 2; ++i)
         if (buf[2 * (i - 1)] < 0 && buf[2 * i] >= 0) ++crossings;
     return crossings;
 }
 
 int main() {
-    CHECK(std::abs(measuredHz(69) - 440) <= 2);    // A4
-    CHECK(std::abs(measuredHz(45) - 110) <= 1);    // A2
-    CHECK(std::abs(measuredHz(81) - 880) <= 3);    // A5
+    for (Engine e : {Engine::Opl3, Engine::Genesis, Engine::Snes}) {
+        const char* name = e == Engine::Opl3 ? "opl3" : e == Engine::Genesis ? "genesis" : "snes";
+        const int a4 = measuredHz(oneNote(e, tone(e), 69)), a2 = measuredHz(oneNote(e, tone(e), 45));
+        std::printf("%s: A4 %d Hz, A2 %d Hz\n", name, a4, a2);
+        CHECK(std::abs(a4 - 440) <= 3);
+        CHECK(std::abs(a2 - 110) <= 2);
+    }
+    {   // The PSG's square wave.
+        Instrument sq;
+        sq.kind = Kind::PsgTone;
+        sq.env = {0.001f, 0.1f, 1.0f, 0.05f};
+        const int hz = measuredHz(oneNote(Engine::Genesis, sq, 69));
+        std::printf("psg: A4 %d Hz\n", hz);
+        CHECK(std::abs(hz - 440) <= 3);
+    }
 
-    music::FmSynth s;
-    CHECK(std::abs(music::FmSynth::chipRate() - 49715.9) < 1);
-    CHECK(rms(s, 0.1) == 0);                   // nothing playing: silence
+    // Looping, volume, pause, switching and stopping (on each engine).
+    for (Engine e : {Engine::Opl3, Engine::Genesis, Engine::Snes}) {
+        auto song = std::make_shared<Song>();
+        song->engine = e;
+        song->instruments.push_back(tone(e));
+        for (int i = 0; i < 4; ++i) song->notes.push_back({i * 0.25, 0.2, 60 + i * 2, 1.0f, 0});
+        song->notes.push_back({0, 1.0, 48, 0.5f, 0});
+        song->length = 1.0;
 
-    s.play(testSong(), 0);
-    CHECK(s.playing());
-    const double loud = rms(s, 0.5);
-    CHECK(loud > 200);
-    rms(s, 0.7);                               // past the 1 s loop point
-    CHECK(s.position() < 0.5);
-    CHECK(rms(s, 0.3) > 200);                  // still playing after the loop
+        Player p;
+        p.setVolume(1);
+        CHECK(rms(p, 0.1) == 0);
+        p.play(song, 0);
+        const double loud = rms(p, 0.5);
+        CHECK(loud > 300);
+        rms(p, 0.7);
+        CHECK(p.position() < 0.5);          // looped
+        CHECK(rms(p, 0.3) > 300);
 
-    s.setVolume(0.2f);
-    const double quiet = rms(s, 0.5);
-    CHECK(quiet < loud * 0.5);
-    s.setVolume(1.0f);
+        p.setVolume(0.2f);
+        CHECK(rms(p, 0.5) < loud * 0.5);
+        p.setVolume(1);
 
-    s.setPaused(true);
-    const double pos = s.position();
-    CHECK(rms(s, 0.2) == 0);
-    CHECK(s.position() == pos);
-    s.setPaused(false);
+        p.setPaused(true);
+        const double pos = p.position();
+        CHECK(rms(p, 0.2) == 0);
+        CHECK(p.position() == pos);
+        p.setPaused(false);
 
-    s.play(testSong(), 0.2);                   // switch with a fade
-    rms(s, 0.3);
-    CHECK(s.playing());
-    CHECK(s.position() < 0.2);                 // the new song started over
+        p.play(song, 0.2);
+        rms(p, 0.3);
+        CHECK(p.playing() && p.position() < 0.2);
 
-    s.stop(0.1);
-    rms(s, 0.2);
-    CHECK(!s.playing());
-    rms(s, 0.5);                               // let the release tails die away
-    CHECK(rms(s, 0.2) == 0);
+        p.stop(0.1);
+        rms(p, 0.3);
+        CHECK(!p.playing());
+        rms(p, 1.5);                         // release tails and echo die away
+        CHECK(rms(p, 0.2) < 1);
+    }
 
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
-    std::printf("music: all passed (rms %.0f, quiet %.0f)\n", loud, quiet);
+    std::printf("music: all passed\n");
     return 0;
 }

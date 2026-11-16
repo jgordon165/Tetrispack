@@ -1,11 +1,18 @@
 // A song from its Lua table (what scripts/music/jukebox.lua builds):
-//   { length = seconds,
-//     patches = { { mod = {mult, tl, ar, dr, sl, rr, ws, ksl, vib, am, sustain, ksr},
-//                   car = {...}, feedback, additive, key }, ... },
-//     notes = { { start, length, key, velocity, patch (1-based) }, ... } }
+//   { engine = "opl3" | "genesis" | "snes", length = seconds,
+//     echo = { delay, feedback, volume },                         -- snes
+//     instruments = { {
+//         kind = "opl" | "fm4" | "psg" | "noise" | "sample",
+//         opl = { mod = {mult, tl, ar, dr, sl, rr, ws, ksl, vib, am, sustain, ksr},
+//                 car = {...}, feedback, additive },
+//         fm4 = { alg, fb, ams, fms, ops = { {dt, mul, tl, ks, ar, d1r, d2r, d1l, rr, am} x4 } },
+//         env = { attack, decay, sustain, release },             -- psg, noise, sample
+//         wave = "pulse25" | "saw" | ... | "kick",                -- sample
+//         noise_hz, vibrato, gain, pan, echo, key }, ... },
+//     notes = { { start, length, key, velocity, instrument (1-based) }, ... } }
 #pragma once
 
-#include "music/fm_synth.h"
+#include "music/song.h"
 
 #include <memory>
 

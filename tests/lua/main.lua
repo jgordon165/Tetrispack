@@ -187,21 +187,33 @@ do
 
   local jukebox = require("music.jukebox")
   for _, song in ipairs(jukebox.songs) do
-    local first
+    check(#song.chords == song.bars, song.name .. ": a chord per bar")
     for _, t in ipairs(song.tracks) do
-      local _, len = mml.parse(t.mml)
-      first = first or len
-      check(len == first, song.name .. ": " .. t.patch .. " track as long as the others")
+      if t.mml then
+        local _, len = mml.parse(t.mml)
+        check(len == song.bars * 4, song.name .. ": " .. t.inst .. " track is " .. song.bars .. " bars (" .. len / 4 .. ")")
+      else
+        local last = 0
+        for _, n in ipairs(t.notes) do last = math.max(last, n[1] + n[2]) end
+        check(last <= song.bars * 4 + 1e-6, song.name .. ": " .. t.inst .. " notes inside the song")
+      end
     end
-    local b = jukebox.build(song)
-    check(#b.notes > 50 and b.length > 15 and b.length < 60, song.name .. " builds (" .. #b.notes .. " notes, " .. b.length .. " s)")
+    for _, style in ipairs(jukebox.styles) do
+      local b = jukebox.build(song, style.id)
+      check(#b.notes > 100 and b.length > 15 and b.length < 60,
+            song.name .. " on " .. style.id .. " (" .. #b.notes .. " notes, " .. b.length .. " s)")
+    end
   end
   check(jukebox.songFor(1) == 1 and jukebox.songFor(2) == 1 and jukebox.songFor(5) == 3 and jukebox.songFor(10) == 5,
         "a song per pair of levels")
   jukebox.choice = "Samovar"; check(jukebox.songFor(1) == 3, "a chosen song")
   jukebox.choice = "Off"; check(jukebox.songFor(1) == nil, "music off")
   jukebox.choice = "By Level"
-  jukebox.update(1)   -- plays through the dummy audio driver without error
+  for _, name in ipairs(jukebox.styleNames) do
+    jukebox.style = name
+    jukebox.update(1)   -- plays through the dummy audio driver without error
+  end
+  jukebox.style = "Super NES"
 end
 
 -- Layout: the playfield is where the original's WM_SIZE puts it.

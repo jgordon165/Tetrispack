@@ -42,7 +42,7 @@ elseif(APPLE)
     target_compile_definitions(lua_static PRIVATE LUA_USE_MACOSX)
 endif()
 
-# ---- ymfm (Yamaha FM chip emulators, BSD-3; we use its OPL3) ---------------
+# ---- ymfm (Yamaha FM chip emulators, BSD-3; we use its OPL3 and YM2612) -----
 # Pinned to a commit: the project has no release tags. SOURCE_SUBDIR points
 # at a folder with no CMakeLists.txt, so only the sources are fetched (ymfm's
 # own CMake would build every chip it has).
@@ -53,6 +53,8 @@ FetchContent_Declare(ymfm
 FetchContent_MakeAvailable(ymfm)
 add_library(ymfm_opl STATIC
     ${ymfm_SOURCE_DIR}/src/ymfm_opl.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_opn.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_ssg.cpp
     ${ymfm_SOURCE_DIR}/src/ymfm_adpcm.cpp
     ${ymfm_SOURCE_DIR}/src/ymfm_pcm.cpp)
 target_include_directories(ymfm_opl SYSTEM PUBLIC ${ymfm_SOURCE_DIR}/src)
@@ -78,7 +80,13 @@ target_include_directories(tetrispack_formats PUBLIC src)
 tetrispack_warnings(tetrispack_formats)
 
 # ---- Music (no SDL; shared by the engine and the tests) ---------------------
-add_library(tetrispack_music STATIC src/music/fm_synth.cpp src/music/song_lua.cpp)
+add_library(tetrispack_music STATIC
+    src/music/player.cpp
+    src/music/backend.cpp
+    src/music/engine_opl3.cpp
+    src/music/engine_genesis.cpp
+    src/music/engine_snes.cpp
+    src/music/song_lua.cpp)
 target_include_directories(tetrispack_music PUBLIC src)
 target_link_libraries(tetrispack_music PUBLIC ymfm_opl lua_static)
 tetrispack_warnings(tetrispack_music)
