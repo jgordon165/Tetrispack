@@ -51,7 +51,22 @@ Without `TETRIS.EXE` it still runs, on a plain background.
 | End / Page Down (keypad 1 / 3) | Slide to the wall |
 | F3 | Pause |
 | F5 | Piece preview on / off |
-| Esc | End the game; quit |
+| Esc or F12 | Menu |
+
+**Menu.** Esc or F12 (Start on a controller) pauses the game and opens the
+original's menus as a popup, drawn in the Windows 3.11 / 95 style: Game
+(New, Pause, Exit), Skill (Starting Level, Starting Rows), Options (Piece
+Preview) and Help (How to Play, Keyboard, About). Up / Down move, Right or
+Enter opens a submenu, Left closes it, Enter chooses, Esc goes back, and the
+underlined letter picks an item. Items the port doesn't do yet (sound, two
+players, high scores) are shown grayed out.
+
+**Controller** (SDL game controllers; the layout the Xbox 360 build will
+use): D-pad moves, Up or A rotates, Down or B drops, the shoulder buttons
+slide to the wall, Start opens the menu, Back pauses. In menus: D-pad, A
+chooses, B goes back.
+
+Controls live in one table, `scripts/ui/input.lua`.
 
 What comes from the original executable (layout, colours, timer per level,
 scoring, the blink) is written up in `docs/original.md`.

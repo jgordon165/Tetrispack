@@ -121,6 +121,9 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
+    // Game controllers are optional (and how the Xbox 360 build will play).
+    if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0)
+        std::fprintf(stderr, "controllers unavailable: %s\n", SDL_GetError());
     if (!eng.video.open("Tetris for Windows", 640, 440, scale)) { SDL_Quit(); return 1; }
 
     lua_State* L = luaL_newstate();
@@ -146,6 +149,15 @@ int main(int argc, char** argv) {
             else if (ev.type == SDL_KEYDOWN) {
                 lua_pushstring(L, input::keyName(ev.key.keysym.sym).c_str());
                 lua_pushboolean(L, ev.key.repeat != 0);
+                ok = callLua(L, "keypressed", 2) && ok;
+            } else if (ev.type == SDL_CONTROLLERDEVICEADDED) {
+                SDL_GameControllerOpen(ev.cdevice.which);
+            } else if (ev.type == SDL_CONTROLLERBUTTONDOWN) {
+                // "pad start", "pad a", "pad dpup", ... (SDL's button names)
+                const char* b = SDL_GameControllerGetStringForButton(
+                    static_cast<SDL_GameControllerButton>(ev.cbutton.button));
+                lua_pushstring(L, (std::string("pad ") + (b ? b : "?")).c_str());
+                lua_pushboolean(L, 0);
                 ok = callLua(L, "keypressed", 2) && ok;
             }
         }
