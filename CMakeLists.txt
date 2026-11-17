@@ -131,7 +131,8 @@ add_library(tetrispack_music STATIC
     src/music/engine_midi.cpp
     src/music/sfx.cpp
     src/music/song_lua.cpp
-    src/music/vgm.cpp)
+    src/music/vgm.cpp
+    src/music/itwriter.cpp)
 target_include_directories(tetrispack_music PUBLIC src)
 target_link_libraries(tetrispack_music PUBLIC ymfm_opl tinysoundfont lua_static)
 tetrispack_warnings(tetrispack_music)

@@ -1,0 +1,43 @@
+name: build-snes
+description: build the Super Nintendo ROM with PVSnesLib and smoke-test it in the snes9x libretro core
+
+inputs:
+  smoke_test:
+    description: run the ROM headless and check the attract demo clears lines
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    # The PC build's music tool writes the soundtrack as Impulse Tracker
+    # modules and the sound effects as a module of samples; only it is built.
+    - name: Configure host tools
+      uses: ./.github/actions/configure-linux
+
+    - name: Build the music tool
+      run: cmake --build build --parallel --target tetrispack_render_music
+      shell: bash
+
+    - name: Cache PVSnesLib
+      uses: actions/cache@v5
+      with:
+        path: .pvsneslib
+        key: ${{runner.os}}-pvsneslib-${{hashFiles('consoles/snes/setup-pvsneslib.sh')}}
+
+    - name: Set up PVSnesLib
+      run: |
+        consoles/snes/setup-pvsneslib.sh .pvsneslib > /dev/null
+        echo "PVSNESLIB_HOME=$PWD/.pvsneslib/pvsneslib" >> "$GITHUB_ENV"
+      shell: bash
+
+    - name: Build the ROM
+      run: consoles/snes/build.sh build-snes
+      shell: bash
+
+    - name: Smoke test in snes9x
+      if: inputs.smoke_test == 'true'
+      run: |
+        sudo apt-get install -y libretro-snes9x
+        consoles/tests/snes_smoke.sh build-snes/tetrispack-snes.sfc build-snes/tetrispack.sym build-snes/smoke
+      shell: bash

@@ -132,10 +132,12 @@ static void lock(TcBoard* b) {
     for (i = 0; i < 4; ++i) {
         cy = (signed char)(b->y + tc_cell_y(b->piece, b->rot, i));
         if (cy < 0) { b->over = 1; b->events |= TC_EV_OVER; return; }
-        b->grid[cy][b->x + tc_cell_x(b->piece, b->rot, i)] = b->piece;
+        x = (unsigned char)(b->x + tc_cell_x(b->piece, b->rot, i));
+        y = (unsigned char)cy;
+        b->grid[y][x] = b->piece;
     }
     ++b->placed;
-    b->score += 6UL * b->level;
+    b->score += (tc_score)6 * b->level;
     b->events |= TC_EV_PLACE;
     b->nclear = 0;
     for (y = 0; y < TC_H; ++y) {
@@ -194,53 +196,107 @@ void tc_collapse(TcBoard* b) {
 
 /* ---- Attract mode ---------------------------------------------------------- */
 
-/* The board with the piece landed, scored as autoplay.lua does (weights x100):
- * lines 3.4, holes -3.6, height -0.5, bumpiness -0.18. */
-static long evaluate(const TcBoard* b, unsigned char rot, signed char px, signed char py) {
-    unsigned char x, y, i, full, top, prev = 0, have_prev = 0, h;
-    unsigned char mine[TC_H][TC_W / 2 + 1];
-    long lines = 0, holes = 0, height = 0, bump = 0;
-    for (y = 0; y < TC_H; ++y)
-        for (x = 0; x <= TC_W / 2; ++x) mine[y][x] = 0;
-    for (i = 0; i < 4; ++i) {
-        x = (unsigned char)(px + tc_cell_x(b->piece, rot, i));
-        y = (unsigned char)(py + tc_cell_y(b->piece, rot, i));
-        mine[y][x >> 1] |= (unsigned char)(1 << (x & 1));
+/* The board without the falling piece, worked out once per choice: each
+ * column's height and holes. A candidate then only rechecks the (at most
+ * four) columns and rows its cells touch, which keeps the search quick on
+ * the SNES. */
+typedef struct {
+    unsigned char height[TC_W], holes[TC_W];
+} Profile;
+
+static void profile(const TcBoard* b, Profile* p) {
+    unsigned char x, y, top;
+    for (x = 0; x < TC_W; ++x) {
+        top = TC_H;
+        p->holes[x] = 0;
+        for (y = 0; y < TC_H; ++y) {
+            if (b->grid[y][x]) { if (top == TC_H) top = y; }
+            else if (top < TC_H) ++p->holes[x];
+        }
+        p->height[x] = (unsigned char)(TC_H - top);
     }
-#define AT(xx, yy) (b->grid[yy][xx] || (mine[yy][(xx) >> 1] & (1 << ((xx) & 1))))
-    for (y = 0; y < TC_H; ++y) {
+}
+
+/* The board with the piece landed at cells (cx, cy), scored as
+ * autoplay.lua does (weights x10, so it fits 16 bits: the SNES compiler's
+ * long arithmetic is 16-bit): lines 3.4, holes -3.6, height -0.5,
+ * bumpiness -0.2. */
+static short evaluate(const TcBoard* b, const Profile* base, const unsigned char* cx, const unsigned char* cy) {
+    unsigned char height[TC_W];
+    unsigned char i, k, x, y, top, full, mine, done;
+    short lines = 0, holes = 0, sum = 0, bump = 0;
+    for (x = 0; x < TC_W; ++x) { height[x] = base->height[x]; holes += base->holes[x]; }
+    /* The columns the piece is in: their height and holes again. */
+    for (i = 0; i < 4; ++i) {
+        x = cx[i];
+        done = 0;
+        for (k = 0; k < i; ++k) if (cx[k] == x) done = 1;
+        if (done) continue;
+        holes -= base->holes[x];
+        top = TC_H;
+        for (y = 0; y < TC_H; ++y) {
+            mine = 0;
+            for (k = 0; k < 4; ++k) if (cx[k] == x && cy[k] == y) mine = 1;
+            if (b->grid[y][x] || mine) { if (top == TC_H) top = y; }
+            else if (top < TC_H) ++holes;
+        }
+        height[x] = (unsigned char)(TC_H - top);
+    }
+    /* Rows the piece fills up. */
+    for (i = 0; i < 4; ++i) {
+        y = cy[i];
+        done = 0;
+        for (k = 0; k < i; ++k) if (cy[k] == y) done = 1;
+        if (done) continue;
         full = 1;
-        for (x = 0; x < TC_W; ++x) if (!AT(x, y)) { full = 0; break; }
+        for (x = 0; x < TC_W && full; ++x) {
+            mine = 0;
+            for (k = 0; k < 4; ++k) if (cx[k] == x && cy[k] == y) mine = 1;
+            if (!b->grid[y][x] && !mine) full = 0;
+        }
         lines += full;
     }
     for (x = 0; x < TC_W; ++x) {
-        top = TC_H;
-        for (y = 0; y < TC_H; ++y) {
-            if (AT(x, y)) { if (top == TC_H) top = y; }
-            else if (top < TC_H) ++holes;
-        }
-        h = (unsigned char)(TC_H - top);
-        height += h;
-        if (have_prev) bump += h > prev ? h - prev : prev - h;
-        prev = h;
-        have_prev = 1;
+        sum += height[x];
+        if (x) bump += height[x] > height[x - 1] ? height[x] - height[x - 1] : height[x - 1] - height[x];
     }
-#undef AT
-    return lines * 340 - holes * 360 - height * 50 - bump * 18;
+    return (short)(lines * 34 - holes * 36 - sum * 5 - bump * 2);
 }
 
 void tc_auto_choose(const TcBoard* b, unsigned char* best_rot, signed char* best_x) {
-    unsigned char rot;
-    signed char x, y;
-    long score, best = -2147483647L;
+    unsigned char rot, i, n, ok, cx[4], cy[4];
+    signed char x, y, land, rx[4][4], ry[4][4], c;
+    short score, best = -32767;
+    Profile base;
+    profile(b, &base);
     *best_rot = b->rot;
     *best_x = b->x;
-    for (rot = 0; rot < rotations(b->piece); ++rot)
+    n = rotations(b->piece);
+    for (rot = 0; rot < n; ++rot)
+        for (i = 0; i < 4; ++i) {
+            rx[rot][i] = tc_cell_x(b->piece, rot, i);
+            ry[rot][i] = tc_cell_y(b->piece, rot, i);
+        }
+    for (rot = 0; rot < n; ++rot)
         for (x = -3; x <= TC_W + 2; ++x) {
-            y = b->y;
-            if (!fits(b, b->piece, rot, x, y)) continue;
-            while (fits(b, b->piece, rot, x, (signed char)(y + 1))) ++y;
-            score = evaluate(b, rot, x, y);
+            /* Dropped from the top, the piece stops on each column's
+             * highest block: it lands at the lowest y every cell allows. */
+            ok = 1;
+            land = TC_H;
+            for (i = 0; i < 4 && ok; ++i) {
+                c = (signed char)(x + rx[rot][i]);
+                if (c < 0 || c >= TC_W) { ok = 0; break; }
+                y = (signed char)(TC_H - base.height[(unsigned char)c] - 1 - ry[rot][i]);
+                if (y < land) land = y;
+            }
+            if (!ok || land < b->y) continue;
+            for (i = 0; i < 4; ++i) {
+                if (land + ry[rot][i] < 0) ok = 0;   /* would stick out of the top */
+                cx[i] = (unsigned char)(x + rx[rot][i]);
+                cy[i] = (unsigned char)(land + ry[rot][i]);
+            }
+            if (!ok) continue;
+            score = evaluate(b, &base, cx, cy);
             if (score > best) { best = score; *best_rot = rot; *best_x = x; }
         }
 }
