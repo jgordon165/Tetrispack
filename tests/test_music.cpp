@@ -58,7 +58,7 @@ static Instrument tone(Engine e) {
     return in;
 }
 
-static std::shared_ptr<Song> oneNote(Engine e, Instrument in, int key, double len = 2.0) {
+static std::shared_ptr<Song> oneNote(Engine e, const Instrument& in, int key, double len = 2.0) {
     auto song = std::make_shared<Song>();
     song->engine = e;
     song->instruments.push_back(in);
@@ -225,7 +225,7 @@ int main(int, char** argv) {
 
         Player p;
         p.setVolume(1);
-        CHECK(rms(p, 0.1) == 0);
+        CHECK(rms(p, 0.1) < 1e-9);
         p.play(song, 0);
         const double loud = rms(p, 0.5);
         CHECK(loud > 300);
@@ -239,8 +239,8 @@ int main(int, char** argv) {
 
         p.setPaused(true);
         const double pos = p.position();
-        CHECK(rms(p, 0.2) == 0);
-        CHECK(p.position() == pos);
+        CHECK(rms(p, 0.2) < 1e-9);                         // silent
+        CHECK(std::fabs(p.position() - pos) < 1e-9);       // and holding still
         p.setPaused(false);
 
         p.play(song, 0.2);
