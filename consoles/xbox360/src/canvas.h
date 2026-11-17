@@ -31,8 +31,8 @@ public:
     int addImage(const Image& img);   // a handle for draw()
     void draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh);
 
-    // The canvas as a 24-bit .bmp (tests and screenshots).
-    bool saveBmp(const std::string& path) const;
+    // The canvas as a 24-bit .bmp file's bytes (tests and screenshots).
+    std::vector<uint8_t> bmp() const;
 
 private:
     int w_, h_;

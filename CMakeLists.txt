@@ -231,9 +231,9 @@ if(TETRISPACK_TESTS)
 
     # The Xbox 360 host plays: past the About box, a game at level 5, a turn
     # and a drop (no game data here, so the plain background).
-    add_test(NAME xbox360_host COMMAND tetrispack360_headless --root ${CMAKE_SOURCE_DIR} --frames 600
-             --screenshot ${CMAKE_BINARY_DIR}/xbox360_host.bmp
-             --keys "30:pad a,40:5,50:f2,200:pad dpup,300:pad dpdown,420:pad dpdown")
+    add_test(NAME xbox360_host COMMAND tetrispack360_headless --frames 600
+             --keys "30:pad a,40:5,50:f2,200:pad dpup,300:pad dpdown,420:pad dpdown"
+             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     set_tests_properties(xbox360_host PROPERTIES PASS_REGULAR_EXPRESSION "sfx place: [1-9]")
 
     # The shipped game must at least boot (and play its attract mode) without data.

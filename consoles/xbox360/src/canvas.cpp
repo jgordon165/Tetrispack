@@ -4,7 +4,6 @@
 #include "font_system.h"
 
 #include <cctype>
-#include <cstdio>
 
 namespace x360 {
 
@@ -113,29 +112,27 @@ void Canvas::draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, in
     }
 }
 
-bool Canvas::saveBmp(const std::string& path) const {
-    FILE* f = std::fopen(path.c_str(), "wb");
-    if (!f) return false;
+std::vector<uint8_t> Canvas::bmp() const {
     const unsigned stride = (unsigned(w_) * 3 + 3) & ~3u, size = 54 + stride * unsigned(h_);
-    unsigned char hdr[54] = { 'B', 'M' };
-    unsigned char* p = hdr;
-    unsigned vals[][2] = { { 2, size }, { 10, 54 }, { 14, 40 }, { 18, unsigned(w_) }, { 22, unsigned(h_) }, { 34, stride * unsigned(h_) } };
+    std::vector<uint8_t> out(size, 0);
+    out[0] = 'B';
+    out[1] = 'M';
+    const unsigned vals[][2] = { { 2, size }, { 10, 54 }, { 14, 40 }, { 18, unsigned(w_) }, { 22, unsigned(h_) },
+                                 { 34, stride * unsigned(h_) } };
     for (size_t i = 0; i < sizeof(vals) / sizeof(vals[0]); ++i)
-        for (int k = 0; k < 4; ++k) p[vals[i][0] + k] = (unsigned char)(vals[i][1] >> (8 * k));
-    hdr[26] = 1;
-    hdr[28] = 24;
-    std::fwrite(hdr, 1, 54, f);
-    std::vector<unsigned char> line(stride, 0);
-    for (int y = h_ - 1; y >= 0; --y) {
+        for (int k = 0; k < 4; ++k) out[vals[i][0] + k] = uint8_t(vals[i][1] >> (8 * k));
+    out[26] = 1;
+    out[28] = 24;
+    for (int y = 0; y < h_; ++y) {
+        uint8_t* line = &out[54 + size_t(h_ - 1 - y) * stride];
         for (int x = 0; x < w_; ++x) {
             const uint32_t c = px_[size_t(y) * w_ + x];
-            line[x * 3] = (unsigned char)(c & 255);
-            line[x * 3 + 1] = (unsigned char)((c >> 8) & 255);
-            line[x * 3 + 2] = (unsigned char)((c >> 16) & 255);
+            line[x * 3] = uint8_t(c & 255);
+            line[x * 3 + 1] = uint8_t((c >> 8) & 255);
+            line[x * 3 + 2] = uint8_t((c >> 16) & 255);
         }
-        std::fwrite(&line[0], 1, stride, f);
     }
-    return std::fclose(f) == 0;
+    return out;
 }
 
 }  // namespace x360
