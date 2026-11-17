@@ -63,8 +63,8 @@ are under Options. Up / Down (or the mouse wheel) choose,
 Left / Right change a setting, Enter (or A) picks, Esc (or B) goes back.
 Messages (Exit?, Game Over) use the same popup.
 
-**Music.** Five pieces, one per pair of levels so the music changes with
-the background: *Korobeiniki* (the public-domain folk song behind Tetris,
+**Music.** Five pieces of 1.5 to 2.5 minutes, one per pair of levels so the music
+changes with the background: *Korobeiniki* (the public-domain folk song behind Tetris,
 arranged for the port), *Program Manager*, *Samovar*, *Midnight Desktop* and
 *Steppe Express* (originals). Each is arranged game-style: the melody with a
 harmony line, chip arpeggios, a moving bass line, drums with fills and

@@ -201,7 +201,7 @@ do
     end
     for _, style in ipairs(jukebox.styles) do
       local b = jukebox.build(song, style.id)
-      check(#b.notes > 100 and b.length > 15 and b.length < 60,
+      check(#b.notes > 300 and b.length > 80 and b.length < 240,
             song.name .. " on " .. style.id .. " (" .. #b.notes .. " notes, " .. b.length .. " s)")
     end
   end
@@ -237,6 +237,24 @@ do
   check(wf.engine == "opl3", "Windows FM MIDI plays on the OPL3")
   local wt = insts(jukebox.tracks(koro, "winfm"))
   check(wt.comp and not wt.arp and wt.clarinet_lead, "Windows FM MIDI: piano chords, no arpeggios, clarinet lead")
+  -- The full piece: intro, A, A with melody and harmony swapped, breakdown,
+  -- A a whole step up.
+  local A = require("music.arrange")
+  local piece, pbars = jukebox.piece(koro, "winfm")
+  check(pbars == 4 + 24 + 24 + 8 + 24, "Korobeiniki's form is " .. pbars .. " bars")
+  local melodyIn = function(t0, t1, inst)
+    for _, t in ipairs(piece) do
+      if t.inst == inst then
+        for _, n in ipairs(t.notes) do if n[1] >= t0 and n[1] < t1 then return n end end
+      end
+    end
+  end
+  check(melodyIn(0, 16, "clarinet_lead") == nil, "no melody in the intro")
+  local first = melodyIn(16, 17, "clarinet_lead")
+  check(first and first[3] == 76, "the melody starts after the intro, on E5")
+  check(melodyIn(16 + 96, 16 + 97, "harmony") ~= nil, "second time the strings take the melody")
+  local last = melodyIn((4 + 24 + 24 + 8) * 4, (4 + 24 + 24 + 8) * 4 + 1, "clarinet_lead")
+  check(last and last[3] == 78, "last time a whole step up (F#5)")
   check(jukebox.soundfont ~= nil, "the GS SoundFont loads (Windows MIDI)")
   local midi = jukebox.build(koro, "midi")
   check(midi.soundfont == jukebox.soundfont and #midi.instruments > 5, "midi build names the SoundFont")
