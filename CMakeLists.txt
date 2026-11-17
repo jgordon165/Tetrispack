@@ -178,16 +178,22 @@ if(TETRISPACK_FETCH_SOUNDFONT AND EXISTS ${gugs_dir}/GeneralUser-GS.sf2)
 endif()
 
 # ---- The Xbox 360 host, headless ---------------------------------------------
-# consoles/xbox360 runs the Lua game on a C++03 host for the XDK's Visual
-# C++ 2010; everything but its Direct3D / XInput / XAudio2 layer also builds
-# here, held to C++98/03 on GCC and Clang, and runs in the tests. Here it
-# links the project's Lua (C); the console compiles Lua as C++ instead
-# (lua_all.cpp, in its .vcxproj only).
+# consoles/xbox360 runs the Lua game on a small C++03 host; the console's
+# build is its own project (consoles/xbox360/CMakeLists.txt, with xsdk).
+# Everything but its console layer also builds here, held to C++98/03 on
+# GCC and Clang, and runs in the tests.
 add_executable(tetrispack360_headless
     consoles/xbox360/src/canvas.cpp
     consoles/xbox360/src/formats360.cpp
     consoles/xbox360/src/game.cpp
     consoles/xbox360/src/platform_headless.cpp)
+# The mixer the xsdk build uses (it has no mixer of its own), tested below.
+add_library(tetrispack360_mixer STATIC consoles/xbox360/src/mixer360.cpp)
+target_include_directories(tetrispack360_mixer PUBLIC consoles/xbox360/src)
+if(NOT MSVC)
+    set_target_properties(tetrispack360_mixer PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+endif()
+tetrispack_warnings(tetrispack360_mixer)
 target_include_directories(tetrispack360_headless PRIVATE src)
 target_link_libraries(tetrispack360_headless PRIVATE lua_static)
 if(NOT MSVC)
@@ -216,6 +222,10 @@ if(TETRISPACK_TESTS)
     target_include_directories(tetrispack_console_core_tests PRIVATE consoles/common)
     tetrispack_warnings(tetrispack_console_core_tests)
     add_test(NAME console_core COMMAND tetrispack_console_core_tests)
+    add_executable(tetrispack_mixer360_tests tests/test_mixer360.cpp)
+    target_link_libraries(tetrispack_mixer360_tests PRIVATE tetrispack360_mixer)
+    tetrispack_warnings(tetrispack_mixer360_tests)
+    add_test(NAME mixer360 COMMAND tetrispack_mixer360_tests)
 
     if(DEFINED ENV{TETRISPACK_DATA})
         set_tests_properties(formats PROPERTIES ENVIRONMENT "TETRISPACK_DATA=$ENV{TETRISPACK_DATA}")

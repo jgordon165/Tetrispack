@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stages the Xbox 360 build's content folder (what goes next to default.xex):
+# Stages the Xbox 360 build's content folder (what goes next to tetrispack.xex):
 # the game's scripts, the songs rendered ahead of time, the sound effects,
 # and an empty data\ folder for the player's own TETRIS.EXE.
 #
@@ -26,10 +26,6 @@ for s in $styles; do
     (cd "$out/music" && "$render" "$root/scripts" loop-wav "$s" 32000)
 done
 (cd "$out/sfx" && "$render" "$root/scripts" sfx-wav 44100)
-cp "$here/README.md" "$out/README.md"
-cat > "$out/data/PUT-TETRIS-EXE-HERE.txt" <<'TXT'
-Copy your own TETRIS.EXE (and ABOUTTET.DLL, for the About box) from the
-Microsoft Entertainment Pack into this folder. Without them the game
-still plays, on a plain background.
-TXT
+cp "$here/README-360.txt" "$out/README.txt"
+cp "$here/README-360.txt" "$out/data/PUT-TETRIS-EXE-HERE.txt"
 echo "content: $out ($(du -sh "$out" | cut -f1))"

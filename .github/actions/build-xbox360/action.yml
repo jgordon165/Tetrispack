@@ -1,58 +1,72 @@
 name: build-xbox360
-description: build default.xex with the Xbox 360 XDK (self-hosted Windows runner) and package it with its content
+description: build tetrispack.xex with xsdk (openpak/x360-sdk) on Linux, as Meguarace does, and package it with its content
 
 inputs:
-  content_artifact:
-    description: the staged content folder (consoles/xbox360/stage-content.sh), uploaded by an earlier job
+  xsdk_ref:
+    description: the openpak/x360-sdk commit to build with
     required: false
-    default: xbox360-content
-  configuration:
+    default: bcbb0e7eeff4bae59f9882209e3edf5affc96767
+  zip:
+    description: the package to write
     required: false
-    default: Release
+    default: dist/tetrispack-xbox360.zip
 
 runs:
   using: "composite"
   steps:
-    # Visual Studio 2010 and the Xbox 360 XDK have to be installed on the
-    # runner; nothing from the XDK is in the repository or the artifacts but
-    # the built default.xex.
-    - name: Check the XDK
-      shell: pwsh
-      run: |
-        if (-not $env:XEDK) { throw "XEDK is not set: install the Xbox 360 XDK on this runner" }
-        $msbuild = if ($env:XDK_MSBUILD) { $env:XDK_MSBUILD } else { "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe" }
-        if (-not (Test-Path $msbuild)) { throw "MSBuild 4.0 not found at $msbuild (set XDK_MSBUILD)" }
-        "MSBUILD=$msbuild" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        Write-Host "XDK: $env:XEDK"
-
-    # Lua's sources, at the version the PC build pins (CMakeLists.txt).
-    - name: Fetch Lua
-      shell: pwsh
-      run: |
-        if (-not (Test-Path .deps\lua-src\onelua.c)) {
-          git clone --quiet --depth 1 --branch v5.4.7 https://github.com/lua/lua.git .deps\lua-src
-        }
-
-    - name: Build default.xex
-      shell: pwsh
-      run: |
-        & $env:MSBUILD consoles\xbox360\Tetrispack360.vcxproj /m /nologo `
-          /p:Configuration=${{inputs.configuration}} "/p:Platform=Xbox 360" /p:LuaDir="$PWD\.deps\lua-src\\"
-        if ($LASTEXITCODE -ne 0) { throw "MSBuild failed ($LASTEXITCODE)" }
-
-    - name: Get the content
-      uses: actions/download-artifact@v6
+    - uses: actions/checkout@v5
       with:
-        name: ${{inputs.content_artifact}}
-        path: stage/Tetrispack360
+        repository: openpak/x360-sdk
+        ref: ${{ inputs.xsdk_ref }}
+        path: xsdk
 
-    - name: Package
-      shell: pwsh
+    - name: Toolchain build tools
+      shell: bash
       run: |
-        $xex = "consoles\xbox360\bin\${{inputs.configuration}}\default.xex"
-        if (-not (Test-Path $xex)) { throw "$xex was not built" }
-        Copy-Item $xex stage\Tetrispack360\
-        $version = git describe --tags --always
-        New-Item -ItemType Directory -Force dist | Out-Null
-        Compress-Archive -Path stage\Tetrispack360 -DestinationPath "dist\tetrispack-xbox360-$version.zip" -Force
-        Get-ChildItem dist
+        sudo apt-get update -q
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q ninja-build zip python3 \
+          libgmp-dev libmpfr-dev libmpc-dev libisl-dev texinfo bison flex
+
+    # Restored and saved as separate steps, so a toolchain once built is kept
+    # even when a later step fails. Building it (GCC, binutils, newlib for
+    # the console's PowerPC) takes about an hour, once.
+    - name: Cached toolchain
+      id: gcc
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/xsdk-gcc
+        key: xsdk-gcc-${{ hashFiles('xsdk/tools/toolchain/**') }}
+    - name: Build the toolchain
+      if: steps.gcc.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        JOBS=$(nproc) bash xsdk/tools/toolchain/build.sh || { tail -n 80 ~/xsdk-gcc-work/logs/*.log; exit 1; }
+    - name: Keep the toolchain
+      if: steps.gcc.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/xsdk-gcc
+        key: xsdk-gcc-${{ hashFiles('xsdk/tools/toolchain/**') }}
+
+    - name: Build libxsdk
+      shell: bash
+      run: make -C xsdk -j$(nproc) build/libxsdk.a
+
+    - name: Build tetrispack.xex
+      shell: bash
+      run: |
+        cmake -S consoles/xbox360 -B build-xex -G Ninja -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=$PWD/xsdk/cmake/xsdk.cmake -DXSDK_TOOLCHAIN=$HOME/xsdk-gcc
+        cmake --build build-xex
+        ls -la build-xex/tetrispack.xex
+
+    # The content: the scripts, the songs rendered ahead of time and the
+    # sound effects, made by the PC build's music tool.
+    - name: Configure host tools
+      uses: ./.github/actions/configure-linux
+    - name: Build the music tool
+      shell: bash
+      run: cmake --build build --parallel --target tetrispack_render_music
+    - name: Package
+      shell: bash
+      run: consoles/xbox360/package.sh build-xex/tetrispack.xex "${{ inputs.zip }}"

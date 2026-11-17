@@ -1,12 +1,12 @@
 // The Xbox 360 host: runs the same Lua game as the PC (scripts/), with the
 // original's art read from the player's TETRIS.EXE, on a small C++03 host
-// the XDK's Visual C++ 2010 compiler can build. The PC engine (src/) needs
-// C++20 and SDL; this host keeps to what the console has.
+// with no SDL. The PC engine (src/) needs C++20 and SDL; this host keeps to
+// what the console's xsdk build has.
 //
 // Game is portable: it holds the Lua state, the canvas and the `tp` API.
-// A Platform supplies files, time, audio and logging: platform_x360.cpp on
-// the console (Direct3D 9, XInput, XAudio2), platform_headless.cpp for the
-// tests that run this host on a PC.
+// A Platform supplies files, time, audio and logging: platform_xsdk.cpp on
+// the console (xsdk: its presenter, XAM's pad input, the kernel's sound
+// driver), platform_headless.cpp for the tests that run this host on a PC.
 #pragma once
 
 #include "canvas.h"
@@ -25,8 +25,8 @@ public:
     virtual ~Platform() {}
     virtual bool readFile(const std::string& path, std::vector<uint8_t>& out) = 0;
     virtual bool fileExists(const std::string& path) = 0;
-    virtual char separator() = 0;                 // '\\' on the console
-    virtual std::string root() = 0;               // "game:\\" on the console
+    virtual char separator() = 0;                 // '/'
+    virtual std::string root() = 0;               // "game:/" on the console
     virtual const char* name() = 0;               // tp.platform()
     virtual uint32_t ticks() = 0;                 // milliseconds
     virtual void log(const std::string& s) = 0;

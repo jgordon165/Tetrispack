@@ -1,0 +1,28 @@
+Tetrispack for the Xbox 360
+===========================
+
+Tetris for Windows 2.00 (Microsoft Entertainment Pack), as an Xbox 360
+title: tetrispack.xex. The game is the PC port's Lua game; its art comes
+from your own copy of the original, which is not included.
+
+1. Copy your TETRIS.EXE into the data folder (and ABOUTTET.DLL for the
+   About box, TETRIS.HST for the original's high scores, if you have them).
+   Without TETRIS.EXE the game still plays, on a plain background.
+
+     tetrispack/
+       tetrispack.xex
+       data/          <- TETRIS.EXE, ABOUTTET.DLL, TETRIS.HST
+       scripts/
+       music/
+       sfx/
+
+2. Copy the whole tetrispack folder to a USB stick or the hard drive of a
+   console that runs unsigned code (BadUpdate + FreeMyXe, RGH or JTAG).
+
+3. Launch tetrispack.xex from Aurora, a file manager or the dashboard.
+
+Controls: D-pad or left stick moves (left and right repeat while held),
+A rotates, B drops, Back pauses, the shoulders slide to the wall, Start
+opens the menu.
+
+Source and issues: https://github.com/jgordon165/Tetrispack

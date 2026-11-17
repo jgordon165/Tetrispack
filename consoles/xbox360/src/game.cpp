@@ -2,20 +2,12 @@
 // same API as the PC's src/lua_api.cpp), and loading the scripts.
 #include "host.h"
 
-// On the console Lua is compiled as C++ (lua_all.cpp, TETRISPACK_LUA_AS_CPP),
-// so its headers are included plainly; the PC build of this host links the
-// project's Lua, compiled as C.
-#ifdef TETRISPACK_LUA_AS_CPP
-#include "lauxlib.h"
-#include "lua.h"
-#include "lualib.h"
-#else
+// Lua is compiled as C, on the console as on the PC.
 extern "C" {
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
 }
-#endif
 
 #include <cstdio>
 
@@ -271,7 +263,7 @@ bool Game::boot(const std::string& data, const std::string& scripts) {
         dataError_.clear();
     }
     L_ = luaL_newstate();
-    // The libraries the game uses (no io, os or debug: see lua_all.cpp).
+    // The libraries the game uses (no io, os or debug; the console build leaves them out).
     static const luaL_Reg libs[] = {
         { LUA_GNAME, luaopen_base }, { LUA_LOADLIBNAME, luaopen_package }, { LUA_COLIBNAME, luaopen_coroutine },
         { LUA_TABLIBNAME, luaopen_table }, { LUA_STRLIBNAME, luaopen_string }, { LUA_MATHLIBNAME, luaopen_math },
