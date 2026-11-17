@@ -173,13 +173,13 @@ int main(int, char** argv) {
         CHECK(!fx.play("nope"));
         for (const char* name : {"rotate", "place"}) {
             CHECK(fx.play(name));
-            std::vector<int16_t> buf(48000 * 2 / 5 * 2, 0);
+            std::vector<int16_t> buf(48000 * 2, 0);
             fx.render(buf.data(), int(buf.size() / 2));
             int peak = 0;
             for (int16_t v : buf) peak = std::max(peak, std::abs(int(v)));
             std::printf("sfx %s: peak %d\n", name, peak);
             CHECK(peak > 2000 && peak < 32767);
-            CHECK(!fx.busy());                     // short: done within 0.4 s
+            CHECK(!fx.busy());                     // short: done within a second
         }
         fx.play("place");
         fx.setVolume(0);

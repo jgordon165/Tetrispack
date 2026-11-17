@@ -40,6 +40,25 @@ void Sfx::prepare(int rate) {
     };
     auto sat = [](double x, double drive) { return std::tanh(x * drive) / std::tanh(drive); };
 
+    // A struck bell, mixed in clean after the crush: a bell's partials (the
+    // hum and the fundamental, the minor third, the fifth, the nominal...)
+    // at their inharmonic ratios, the higher ones dying away faster.
+    auto bell = [&](std::vector<float>& pcm, double hz, double seconds, float gain) {
+        static const double ratio[] = {0.5, 1.0, 1.183, 1.506, 2.0, 2.514, 2.662, 3.011};
+        static const double amp[] = {0.35, 1.0, 0.45, 0.3, 0.5, 0.18, 0.15, 0.1};
+        const size_t n = size_t(seconds * rate);
+        if (pcm.size() < n) pcm.resize(n, 0.0f);
+        for (size_t i = 0; i < n; ++i) {
+            const double t = double(i) / rate;
+            double v = 0;
+            for (int k = 0; k < 8; ++k) {
+                const double decay = seconds * 0.45 / (0.6 + ratio[k]);
+                v += amp[k] * std::sin(2 * kPi * hz * ratio[k] * t) * std::exp(-t / decay);
+            }
+            pcm[i] += float(gain * v * std::min(1.0, t / 0.001) / 2.2);
+        }
+    };
+
     // Rotate: a short mechanical "chk" - a low, driven square that drops a
     // little, under a burst of filtered noise.
     double ph = 0;
@@ -54,6 +73,7 @@ void Sfx::prepare(int rate) {
         return float(env * (0.55 * body + 0.6 * click));
     });
     crush(effects_.back().pcm, 11025, 6);
+    bell(effects_.back().pcm, 1318.5, 0.35, 0.35);   // a small high ting (E6)
 
     // Place: a heavy landing in layers - a sub thump falling from 110 to
     // 38 Hz, a saturated mid body, a crunchy noise hit, and a smaller
@@ -77,6 +97,7 @@ void Sfx::prepare(int rate) {
         return float(sat(env * (0.75 * sub + 0.45 * mid + 0.7 * hit + settle), 1.6) * 0.95);
     });
     crush(effects_.back().pcm, 11025, 7);
+    bell(effects_.back().pcm, 784.0, 0.7, 0.4);      // a fuller dong (G5)
 }
 
 bool Sfx::play(const std::string& name, float gain) {
