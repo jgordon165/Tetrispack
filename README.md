@@ -104,8 +104,8 @@ melodies are text in `scripts/music/songs.lua` (a small MML,
 `scripts/music/mml.lua`), the accompaniment is generated from each song's
 chords (`scripts/music/arrange.lua`), and every engine's instruments are in
 `scripts/music/instruments.lua`. To hear them outside the game,
-`tetrispack_render_music scripts out/ [winfm|midi|snes|genesis|opl3]` writes a .wav
-per song.
+`tetrispack_render_music <scripts dir> [winfm|midi|snes|genesis|opl3]` writes a .wav
+per song into the current folder.
 
 **Sound effects.** A short mechanical "chk" with a small high bell when a
 piece rotates, and a heavy layered thump with a fuller bell when it lands
@@ -125,6 +125,15 @@ Controls live in one table, `scripts/ui/input.lua`.
 What comes from the original executable (layout, colours, timer per level,
 scoring, the blink) is written up in `docs/original.md`.
 
+## Consoles
+
+The game also builds as console ROMs, with the rules rewritten in C
+(`consoles/common/`) because the Lua game can't run on those machines. The
+ROMs use lookalike backgrounds of our own, so they can be shared. A local
+build can bake in your TETRIS.EXE's art for your own use.
+
+- **Sega Genesis / Mega Drive** (SGDK): see [consoles/genesis](consoles/genesis/README.md).
+
 ## Layout
 
 | Path | |
@@ -132,6 +141,7 @@ scoring, the blink) is written up in `docs/original.md`.
 | `src/` | C++ host: window and drawing (`video.cpp`), input, the Lua API (`lua_api.cpp`) |
 | `src/formats/` | The NE executable and its resources (`ne.cpp`), bitmaps (`dib.cpp`) |
 | `scripts/` | The game in Lua: rules (`game/board.lua`), pieces, drawing (`game/skin.lua`), attract mode |
+| `consoles/` | Console builds: the rules in C (`common/`), Genesis (`genesis/`), MAME smoke tests (`tests/`) |
 | `tests/` | Format tests on executables built in memory, and Lua rule tests |
 | `re/`, `tools/` | Reverse-engineering workflow: identify, list and extract resources, decompile with Ghidra |
 | `docs/formats.md` | NE and resource formats as the port reads them |
@@ -151,9 +161,11 @@ Same pipelines as Meguarace:
 - **CI-build**: every push (and pull requests from forks) builds and tests
   on Linux (GCC and Clang), macOS (Intel and Apple silicon) and Windows
   (x64 and x86). Run it by hand from the Actions tab to pick platforms.
+- **genesis** (in CI-build): builds the Genesis ROM with SGDK and boots it
+  in MAME to check that the attract demo plays and clears lines.
 - **code-analysis**: CodeQL (security-and-quality) on `master`.
-- **release-linux / release-windows / release-mac-osx**, and **release-all**
-  to run all three: build, test, package (no game data) and upload the
+- **release-linux / release-windows / release-mac-osx / release-genesis**,
+  and **release-all** to run them all: build, test, package (no game data) and upload the
   archives as workflow artifacts, plus Windows `.pdb` symbols. macOS builds
   are universal and are signed and notarized when the `PROD_MACOS_*`
   secrets are set on the repository.

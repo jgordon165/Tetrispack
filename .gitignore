@@ -40,3 +40,9 @@ __pycache__/
 stage/
 dist/
 .deps/
+
+# Console builds: devkits fetched by consoles/*/setup-*.sh, build output
+/.sgdk/
+/.pvsneslib/
+/build-genesis/
+/build-snes/

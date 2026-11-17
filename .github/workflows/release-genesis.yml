@@ -1,0 +1,33 @@
+name: release-genesis
+
+on: [workflow_dispatch, workflow_call]
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    # Our own lookalike backgrounds only (no --data): the ROM holds no
+    # original game content and can be shared.
+    - name: Build and smoke-test
+      uses: ./.github/actions/build-genesis
+
+    - name: Package
+      run: |
+        version=$(git describe --tags --always)
+        mkdir -p dist stage/Tetrispack-Genesis
+        cp build-genesis/tetrispack-genesis.bin "stage/Tetrispack-Genesis/tetrispack-genesis-$version.bin"
+        cp consoles/genesis/README.md stage/Tetrispack-Genesis/
+        cp .sgdk/SGDK/license.txt stage/Tetrispack-Genesis/SGDK-LICENSE.txt
+        (cd stage && zip -qr "../dist/tetrispack-genesis-$version.zip" Tetrispack-Genesis)
+        ls -l dist
+
+    - name: Upload
+      uses: actions/upload-artifact@v6
+      with:
+        name: tetrispack-genesis-release
+        if-no-files-found: error
+        path: dist/*.zip

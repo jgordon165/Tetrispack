@@ -10,7 +10,7 @@ on:
         description: Platforms to build
         type: choice
         default: all
-        options: [all, linux, mac-osx, windows]
+        options: [all, linux, mac-osx, windows, genesis]
 
 # Same rule as the Aleph One fork: build pushes, and pull requests only when
 # they come from another repository (a same-repo PR is already built by its push).
@@ -119,3 +119,25 @@ jobs:
           configurations: Release
       - name: Run Tests
         uses: ./.github/actions/run-tests
+
+  genesis:
+    if: (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name !=
+      github.event.pull_request.base.repo.full_name) &&
+      (github.event_name != 'workflow_dispatch' ||
+      inputs.platforms == 'all' || inputs.platforms == 'genesis')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and smoke-test
+        uses: ./.github/actions/build-genesis
+      - name: Upload the ROM and the smoke test's snapshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tetrispack-genesis
+          if-no-files-found: ignore
+          path: |
+            build-genesis/tetrispack-genesis.bin
+            build-genesis/smoke/snap
+            build-genesis/smoke/result.txt
