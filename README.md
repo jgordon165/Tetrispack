@@ -151,9 +151,9 @@ be shared. A local build can bake in your TETRIS.EXE's art for your own use.
 
 - **Sega Genesis / Mega Drive** (SGDK): see [consoles/genesis](consoles/genesis/README.md).
 - **Super Nintendo** (PVSnesLib): see [consoles/snes](consoles/snes/README.md).
-- **Xbox 360** (XDK, `default.xex`): the same Lua game as the PC, reading your
-  TETRIS.EXE, on a small C++03 host; built on a self-hosted runner with the
-  XDK. See [consoles/xbox360](consoles/xbox360/README.md).
+- **Xbox 360** (xsdk, `tetrispack.xex`): the same Lua game as the PC, on a
+  small C++03 host. It's packaged as a folder with an empty `data/` for your
+  own TETRIS.EXE. See [consoles/xbox360](consoles/xbox360/README.md).
 
 ## Layout
 
@@ -185,10 +185,12 @@ Same pipelines as Meguarace:
 - **genesis** and **snes** (in CI-build): build the console ROMs (SGDK,
   PVSnesLib) and run them headless (MAME, the snes9x libretro core) to
   check that the attract demo plays and clears lines.
-- **xbox360** (in CI-build): builds `default.xex` on a self-hosted Windows
-  runner with the XDK (labels `self-hosted`, `windows`, `xdk`), once the
-  repository variable `XBOX360_RUNNER` is `true`. Its host also builds and
-  runs headless in every CI job (the `xbox360_host` test).
+- **xbox360** (in CI-build): builds `tetrispack.xex` with xsdk
+  (openpak/x360-sdk) on a hosted Linux runner, as Meguarace does. Its
+  toolchain is cached after the first build. The package is the title in a
+  folder with the scripts, music and sound effects, and an empty `data/`
+  for your TETRIS.EXE. Its host also builds and runs headless in every CI
+  job (the `xbox360_host` and `mixer360` tests).
 - **code-analysis**: CodeQL (security-and-quality) on `master`.
 - **release-linux / release-windows / release-mac-osx / release-genesis /
   release-snes / release-xbox360**,

@@ -2,36 +2,22 @@ name: release-xbox360
 
 on: [workflow_dispatch, workflow_call]
 
-# Needs the self-hosted XDK runner (see ci-build.yml): skipped unless the
-# repository variable XBOX360_RUNNER is true.
+# tetrispack.xex with xsdk on a hosted runner (see ci-build.yml), packaged
+# with its content and an empty data/ for the player's TETRIS.EXE.
 jobs:
-  content:
-    if: vars.XBOX360_RUNNER == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v5
-    - name: Configure host tools
-      uses: ./.github/actions/configure-linux
-    - name: Build the music tool
-      run: cmake --build build --parallel --target tetrispack_render_music
-    - name: Stage the content
-      run: consoles/xbox360/stage-content.sh stage/content
-    - uses: actions/upload-artifact@v6
-      with:
-        name: xbox360-content
-        path: stage/content
-        retention-days: 3
-
   release:
-    needs: content
-    if: vars.XBOX360_RUNNER == 'true'
-    runs-on: [self-hosted, windows, xdk]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
     steps:
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0
+    - name: Version
+      run: echo "VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
     - name: Build and package
       uses: ./.github/actions/build-xbox360
+      with:
+        zip: dist/tetrispack-xbox360-${{ env.VERSION }}.zip
     - name: Upload
       uses: actions/upload-artifact@v6
       with:
