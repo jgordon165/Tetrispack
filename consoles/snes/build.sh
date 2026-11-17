@@ -20,6 +20,7 @@ data=""
 if [ "${1:-}" = "--data" ]; then data=${2:?--data needs a folder}; fi
 : "${PVSNESLIB_HOME:?set PVSNESLIB_HOME to your PVSnesLib folder}"
 render=${RENDER_MUSIC:-$root/build/tetrispack_render_music}
+render=$(cd "$(dirname "$render")" && pwd)/$(basename "$render")   # absolute: it runs from res/
 
 rm -rf "$out"
 mkdir -p "$out/src" "$out/res"
@@ -34,8 +35,7 @@ else
 fi
 # The SNES has 64 KB of sound RAM for the driver, a song, its echo and the
 # sound effects: each song plays once, then again a whole step up.
-TETRISPACK_SNES_FORM=twice "$render" "$root/scripts" "$out/res" snes-it
-"$render" "$root/scripts" "$out/res" sfx-it 8000
+(cd "$out/res" && TETRISPACK_SNES_FORM=twice "$render" "$root/scripts" snes-it && "$render" "$root/scripts" sfx-it 8000)
 
 cd "$out"
 make musics

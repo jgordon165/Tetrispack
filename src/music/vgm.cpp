@@ -1,6 +1,5 @@
 #include "music/vgm.h"
 
-#include <cstdio>
 
 namespace music {
 
@@ -42,7 +41,7 @@ void VgmWriter::loopHere(uint64_t at) {
     looped_ = true;
 }
 
-bool VgmWriter::save(const std::string& path, uint64_t at) {
+std::vector<uint8_t> VgmWriter::finish(uint64_t at) {
     waitUntil(at);
     std::vector<uint8_t> out(0x40, 0);
     auto put32 = [&](size_t off, uint32_t v) {
@@ -65,10 +64,7 @@ bool VgmWriter::save(const std::string& path, uint64_t at) {
     put32(0x34, 0x40 - 0x34);                     // data offset
     out.insert(out.end(), data_.begin(), data_.end());
     out.push_back(0x66);                          // end of data
-    FILE* f = std::fopen(path.c_str(), "wb");
-    if (!f) return false;
-    const bool ok = std::fwrite(out.data(), 1, out.size(), f) == out.size();
-    return std::fclose(f) == 0 && ok;
+    return out;
 }
 
 }  // namespace music

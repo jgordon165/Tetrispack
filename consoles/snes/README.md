@@ -11,7 +11,7 @@ blink.
   cells of 8x8 in the original's gray 3-D frame. Full rows blink inverted
   before they go.
 - **Music**: the PC game's SNES style, written as Impulse Tracker modules
-  (`tetrispack_render_music <scripts> <dir> snes-it`) for PVSnesLib's
+  (`tetrispack_render_music <scripts> snes-it`, into the current folder) for PVSnesLib's
   SNESMOD driver.
   - The synthesized instruments become short samples, their envelopes IT
     volume envelopes, and the echo SNESMOD's.

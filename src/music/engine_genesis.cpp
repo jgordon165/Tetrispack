@@ -8,12 +8,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 namespace music {
 
 namespace {
 
-VgmWriter* g_vgm = nullptr;
+std::unique_ptr<VgmWriter> g_vgm;   // beginGenesisVgm() .. endGenesisVgm()
 
 constexpr uint32_t kClock = 7670453;            // NTSC Mega Drive YM2612 clock
 constexpr uint8_t kSlot[4] = {0, 8, 4, 12};     // operators 1-4 -> register offsets
@@ -35,7 +36,7 @@ float psgLevel(float v) {
 
 class Genesis : public Backend, ymfm::ymfm_interface {
 public:
-    Genesis() : vgm_(g_vgm) {
+    Genesis() : vgm_(g_vgm.get()) {
         opn_.reset();
         if (vgm_)
             for (uint8_t ch = 0; ch < 4; ++ch) vgm_->psg(uint8_t(0x9F | (ch << 5)), 0);   // PSG silent
@@ -248,7 +249,12 @@ private:
 
 }  // namespace
 
-void setGenesisVgm(VgmWriter* vgm) { g_vgm = vgm; }
+VgmWriter& beginGenesisVgm() {
+    g_vgm = std::make_unique<VgmWriter>();
+    return *g_vgm;
+}
+
+void endGenesisVgm() { g_vgm.reset(); }
 
 std::unique_ptr<Backend> makeGenesis() { return std::make_unique<Genesis>(); }
 
