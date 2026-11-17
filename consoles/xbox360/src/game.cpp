@@ -2,10 +2,20 @@
 // same API as the PC's src/lua_api.cpp), and loading the scripts.
 #include "host.h"
 
-// Lua is compiled as C++ here (lua_all.cpp), so its headers are included plainly.
+// On the console Lua is compiled as C++ (lua_all.cpp, TETRISPACK_LUA_AS_CPP),
+// so its headers are included plainly; the PC build of this host links the
+// project's Lua, compiled as C.
+#ifdef TETRISPACK_LUA_AS_CPP
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
+#else
+extern "C" {
+#include "lauxlib.h"
+#include "lua.h"
+#include "lualib.h"
+}
+#endif
 
 #include <cstdio>
 

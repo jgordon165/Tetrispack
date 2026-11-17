@@ -180,19 +180,18 @@ endif()
 # ---- The Xbox 360 host, headless ---------------------------------------------
 # consoles/xbox360 runs the Lua game on a C++03 host for the XDK's Visual
 # C++ 2010; everything but its Direct3D / XInput / XAudio2 layer also builds
-# here, held to C++98/03 on GCC and Clang, and runs in the tests.
+# here, held to C++98/03 on GCC and Clang, and runs in the tests. Here it
+# links the project's Lua (C); the console compiles Lua as C++ instead
+# (lua_all.cpp, in its .vcxproj only).
 add_executable(tetrispack360_headless
     consoles/xbox360/src/canvas.cpp
     consoles/xbox360/src/formats360.cpp
     consoles/xbox360/src/game.cpp
-    consoles/xbox360/src/lua_all.cpp
     consoles/xbox360/src/platform_headless.cpp)
-target_include_directories(tetrispack360_headless PRIVATE src ${lua_SOURCE_DIR})
+target_include_directories(tetrispack360_headless PRIVATE src)
+target_link_libraries(tetrispack360_headless PRIVATE lua_static)
 if(NOT MSVC)
     set_target_properties(tetrispack360_headless PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
-    set_source_files_properties(consoles/xbox360/src/lua_all.cpp PROPERTIES COMPILE_OPTIONS "-w")
-else()
-    set_source_files_properties(consoles/xbox360/src/lua_all.cpp PROPERTIES COMPILE_OPTIONS "/W0")
 endif()
 tetrispack_warnings(tetrispack360_headless)
 

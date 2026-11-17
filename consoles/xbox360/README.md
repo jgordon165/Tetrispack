@@ -65,7 +65,7 @@ MSBuild consoles\xbox360\Tetrispack360.vcxproj /p:Configuration=Release "/p:Plat
 | `src/platform_x360.cpp` | Direct3D 9, XInput, XAudio2 (XDK only) |
 | `src/platform_headless.cpp` | The same host on a PC, no window or sound, for tests |
 
-Everything but `platform_x360.cpp` builds on a PC as C++98/03
-(`tetrispack360_headless`, run from a content folder or the repository's
+Everything but `platform_x360.cpp` and `lua_all.cpp` builds on a PC as
+C++98/03, linking the PC build's Lua (`tetrispack360_headless`, run from a content folder or the repository's
 root). The `xbox360_host` test runs it: it starts a game, turns and drops
 pieces, and checks the sound effects fire.

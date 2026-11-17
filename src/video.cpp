@@ -93,7 +93,7 @@ void Video::text(int x, int y, const std::string& s, int scale, uint8_t r, uint8
             for (int row = 0; row < 13; ++row) {
                 const char* bits = gl ? gl->rows[row] : (row == 0 || row == 9 ? "#####" : row < 9 ? "#...#" : "");
                 if (!bits) continue;
-                for (int col = 0; bits[col] && col < w; ++col) {
+                for (int col = 0; col < w && bits[col]; ++col) {
                     if (bits[col] != '#') continue;
                     const SDL_Rect px{x + col * scale, y + row * scale, scale, scale};
                     SDL_RenderFillRect(ren_, &px);

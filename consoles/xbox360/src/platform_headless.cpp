@@ -84,13 +84,17 @@ int main(int argc, char** argv) {
     std::string keys;
     bool shot = false;
     long frames = 120;
-    for (int i = 1; i < argc; ++i) {
-        const std::string a = argv[i];
-        const char* v = i + 1 < argc ? argv[i + 1] : "";
-        if (a == "--frames") { frames = std::atol(v); ++i; }
-        else if (a == "--screenshot") shot = true;
-        else if (a == "--keys") { keys = v; ++i; }
-        else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
+    int i = 1;
+    while (i < argc) {
+        const std::string a = argv[i++];
+        if (a == "--screenshot") { shot = true; continue; }
+        if ((a != "--frames" && a != "--keys") || i >= argc) {
+            std::fprintf(stderr, "unknown option or missing value: %s\n", a.c_str());
+            return 2;
+        }
+        const char* v = argv[i++];
+        if (a == "--frames") frames = std::atol(v);
+        else keys = v;
     }
 
     // "120:pad start,300:pad a"
