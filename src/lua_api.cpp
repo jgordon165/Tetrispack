@@ -195,7 +195,7 @@ int l_base_path(lua_State* L) {
     return 1;
 }
 
-// tp.sfx(name [, gain]): a sound effect ("rotate", "place")
+// tp.sfx(name [, gain]): a sound effect ("rotate", "place", "clear", "clear_big")
 int l_sfx(lua_State* L) {
     eng(L)->audio.playSfx(luaL_checkstring(L, 1), float(luaL_optnumber(L, 2, 1.0)));
     return 0;

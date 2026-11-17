@@ -242,7 +242,11 @@ function game.update(dt)
   jukebox.update(board.level, state ~= "over")
   jukebox.pause(state == "pause" and #popups == 0)
   if state ~= "play" or #popups > 0 then return end
-  if board.clearing and not blink then blink = { pass = BLINK_PASSES, t = 0 } end
+  if board.clearing and not blink then
+    blink = { pass = BLINK_PASSES, t = 0 }
+    -- A chime as the rows start to blink; a bigger one for three or more.
+    tp.sfx(#board.clearing >= 3 and "clear_big" or "clear")
+  end
   if blink then
     blink.t = blink.t + dt
     while blink and blink.t >= BLINK_STEP do

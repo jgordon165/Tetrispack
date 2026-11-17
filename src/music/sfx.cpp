@@ -14,7 +14,7 @@ void Sfx::prepare(int rate) {
     rate_ = rate;
     effects_.clear();
     voices_.clear();
-    effects_.reserve(4);
+    effects_.reserve(8);
     voices_.reserve(16);   // no allocations on the audio thread later
     unsigned seed = 0x1234567u;
     auto noise = [&]() { seed = seed * 1103515245u + 12345u; return float((seed >> 9) & 0xFFFF) / 32768.0f - 1.0f; };
@@ -43,13 +43,14 @@ void Sfx::prepare(int rate) {
     // A struck bell, mixed in clean after the crush: a bell's partials (the
     // hum and the fundamental, the minor third, the fifth, the nominal...)
     // at their inharmonic ratios, the higher ones dying away faster.
-    auto bell = [&](std::vector<float>& pcm, double hz, double seconds, float gain) {
+    auto bell = [&](std::vector<float>& pcm, double hz, double seconds, float gain, double at = 0) {
         static const double ratio[] = {0.5, 1.0, 1.183, 1.506, 2.0, 2.514, 2.662, 3.011};
         static const double amp[] = {0.35, 1.0, 0.45, 0.3, 0.5, 0.18, 0.15, 0.1};
-        const size_t n = size_t(seconds * rate);
-        if (pcm.size() < n) pcm.resize(n, 0.0f);
-        for (size_t i = 0; i < n; ++i) {
-            const double t = double(i) / rate;
+        const size_t first = size_t(at * rate), n = size_t(seconds * rate);
+        if (pcm.size() < first + n) pcm.resize(first + n, 0.0f);
+        for (size_t j = 0; j < n; ++j) {
+            const size_t i = first + j;
+            const double t = double(j) / rate;
             double v = 0;
             for (int k = 0; k < 8; ++k) {
                 const double decay = seconds * 0.45 / (0.6 + ratio[k]);
@@ -98,6 +99,42 @@ void Sfx::prepare(int rate) {
     });
     crush(effects_.back().pcm, 11025, 7);
     bell(effects_.back().pcm, 784.0, 0.7, 0.4);      // a fuller dong (G5)
+
+    // Clear (one or two rows): a crunchy rising whoosh under a quick bell
+    // chime, G5 C6 E6.
+    lp = 0;
+    make("clear", 0.25, [&](double t) {
+        lp += float(0.1 + 0.5 * t / 0.25) * (noise() - lp);       // opening up as it rises
+        const double env = std::min(1.0, t / 0.05) * std::exp(-t / 0.09);
+        return float(lp * env * 0.8);
+    });
+    crush(effects_.back().pcm, 11025, 6);
+    {
+        auto& pcm = effects_.back().pcm;
+        const double notes[] = {784.0, 1046.5, 1318.5};
+        for (int k = 0; k < 3; ++k) bell(pcm, notes[k], k == 2 ? 0.9 : 0.5, 0.55f, 0.06 * k);
+    }
+
+    // Big clear (three rows or more): a low crunchy boom, a five-note bell
+    // run up to G6, and the top note again an octave up, shimmering out.
+    ph = 0;
+    lp = 0;
+    make("clear_big", 0.6, [&](double t) {
+        const double hz = 45 + 90 * std::exp(-t / 0.06);
+        ph += 2 * kPi * hz / rate;
+        lp += 0.25f * (noise() - lp);
+        const double boom = sat(std::sin(ph), 3.0) * std::exp(-t / 0.2);
+        const double rush = lp * std::min(1.0, t / 0.02) * std::exp(-t / 0.15);
+        return float(sat(0.8 * boom + 0.7 * rush, 1.5) * 0.9);
+    });
+    crush(effects_.back().pcm, 11025, 6);
+    {
+        auto& pcm = effects_.back().pcm;
+        const double notes[] = {784.0, 1046.5, 1318.5, 1568.0, 2093.0};
+        for (int k = 0; k < 5; ++k) bell(pcm, notes[k], k == 4 ? 1.6 : 0.6, 0.4f, 0.055 * k);
+        bell(pcm, 3136.0, 1.4, 0.18f, 0.33);                       // sparkle, an octave above the top
+        bell(pcm, 523.25, 1.2, 0.3f, 0.0);                          // and a low C under it all
+    }
 }
 
 bool Sfx::play(const std::string& name, float gain) {

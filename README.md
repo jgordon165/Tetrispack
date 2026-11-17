@@ -94,7 +94,9 @@ per song.
 
 **Sound effects.** A short mechanical "chk" with a small high bell when a
 piece rotates, and a heavy layered thump with a fuller bell when it lands
-(dropped or by gravity); the thumps bit-crushed for a chunky 16-bit
+(dropped or by gravity). Clearing rows chimes - three bells rising over a
+crunchy whoosh, or for three rows or more a low boom under a five-bell run
+and a shimmering top note; the thumps bit-crushed for a chunky 16-bit
 texture, the bells left clean. Synthesized by the port
 (`src/music/sfx.cpp`) and mixed over whichever music style is playing.
 Options > Sound Effects sets their volume.

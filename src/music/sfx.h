@@ -13,7 +13,8 @@ class Sfx {
 public:
     // Builds every effect for output at `rate` Hz.
     void prepare(int rate);
-    // Starts effect `name` ("rotate", "place"); false if there's no such effect.
+    // Starts effect `name` ("rotate", "place", "clear", "clear_big"); false
+    // if there's no such effect.
     bool play(const std::string& name, float gain = 1.0f);
     void setVolume(float v) { volume_ = v < 0 ? 0 : v > 1 ? 1 : v; }
     bool busy() const { return !voices_.empty(); }
