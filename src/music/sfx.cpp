@@ -7,7 +7,7 @@ namespace music {
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;
-constexpr float kGain = 14000.0f;
+constexpr float kGain = 16000.0f;
 }  // namespace
 
 void Sfx::prepare(int rate) {
@@ -27,27 +27,56 @@ void Sfx::prepare(int rate) {
         effects_.push_back(std::move(e));
     };
 
-    // Rotate: a quick rising blip, a soft square with its edges rounded off.
-    double ph = 0;
-    make("rotate", 0.06, [&](double t) {
-        const double hz = 700 + 900 * (t / 0.06);
-        ph += 2 * kPi * hz / rate;
-        const double sq = std::tanh(4.0 * std::sin(ph));         // rounded square
-        const double env = std::min(1.0, t / 0.003) * std::exp(-t / 0.025);
-        return float(0.6 * sq * env);
-    });
+    // Both run through a bit-crusher: held at about 11 kHz and quantized to
+    // a few bits, the chunky texture of early-90s console effects.
+    auto crush = [&](std::vector<float>& pcm, double holdHz, int bits) {
+        const int hold = std::max(1, int(rate / holdHz));
+        const float steps = float(1 << (bits - 1));
+        float held = 0;
+        for (size_t i = 0; i < pcm.size(); ++i) {
+            if (i % size_t(hold) == 0) held = std::round(pcm[i] * steps) / steps;
+            pcm[i] = held;
+        }
+    };
+    auto sat = [](double x, double drive) { return std::tanh(x * drive) / std::tanh(drive); };
 
-    // Place: a low thud that drops in pitch, with a short knock on top.
-    ph = 0;
+    // Rotate: a short mechanical "chk" - a low, driven square that drops a
+    // little, under a burst of filtered noise.
+    double ph = 0;
     float lp = 0;
-    make("place", 0.16, [&](double t) {
-        const double hz = 55 + 110 * std::exp(-t / 0.02);
+    make("rotate", 0.085, [&](double t) {
+        const double hz = 180 + 140 * std::exp(-t / 0.012);
         ph += 2 * kPi * hz / rate;
-        lp += 0.35f * (noise() - lp);
-        const double thud = std::sin(ph) * std::exp(-t / 0.05);
-        const double knock = lp * std::exp(-t / 0.012);
-        return float(0.7 * thud + 0.45 * knock);
+        lp += 0.45f * (noise() - lp);
+        const double body = sat(std::sin(ph), 3.0) * std::exp(-t / 0.03);
+        const double click = lp * std::exp(-t / 0.008);
+        const double env = std::min(1.0, t / 0.0015);
+        return float(env * (0.55 * body + 0.6 * click));
     });
+    crush(effects_.back().pcm, 11025, 6);
+
+    // Place: a heavy landing in layers - a sub thump falling from 110 to
+    // 38 Hz, a saturated mid body, a crunchy noise hit, and a smaller
+    // knock 45 ms later as the piece settles.
+    double ph1 = 0, ph2 = 0;
+    lp = 0;
+    float lp2 = 0;
+    make("place", 0.30, [&](double t) {
+        const double subHz = 38 + 72 * std::exp(-t / 0.035);
+        const double midHz = 95 + 120 * std::exp(-t / 0.015);
+        ph1 += 2 * kPi * subHz / rate;
+        ph2 += 2 * kPi * midHz / rate;
+        lp += 0.3f * (noise() - lp);           // darker noise for the hit
+        lp2 += 0.6f * (noise() - lp2);
+        const double sub = std::sin(ph1) * std::exp(-t / 0.11);
+        const double mid = sat(std::sin(ph2), 4.0) * std::exp(-t / 0.045);
+        const double hit = lp * std::exp(-t / 0.02);
+        const double t2 = t - 0.045;
+        const double settle = t2 > 0 ? lp2 * std::exp(-t2 / 0.012) * 0.5 + std::sin(2 * kPi * 160 * t2) * std::exp(-t2 / 0.02) * 0.35 : 0.0;
+        const double env = std::min(1.0, t / 0.001);
+        return float(sat(env * (0.75 * sub + 0.45 * mid + 0.7 * hit + settle), 1.6) * 0.95);
+    });
+    crush(effects_.back().pcm, 11025, 7);
 }
 
 bool Sfx::play(const std::string& name, float gain) {
