@@ -234,6 +234,71 @@ function A.stabs(chords, rhythm, low, opts)
   return out
 end
 
+-- The form a song plays in: sections cut from its one written pass.
+--   from, to     the bars of the pass this section plays
+--   mute         track roles left out ("melody" = the song's melody track)
+--   swap         { a = b }: track a plays on b's instrument and b on a's
+--   transpose    semitones, for everything but the drums
+A.drumParts = { kick = true, snare = true, clap = true, hat = true, open = true, crash = true,
+                tom = true, conga = true, bongo = true }
+
+function A.form(bars)
+  return {
+    { name = "intro", from = 1, to = math.min(4, bars), mute = { melody = true, harmony = true, bells = true, lead = true } },
+    { name = "A", from = 1, to = bars },
+    { name = "A2", from = 1, to = bars, swap = { melody = "harmony" } },
+    { name = "breakdown", from = 1, to = math.min(8, bars),
+      mute = { melody = true, harmony = true, bells = true, lead = true, arp = true, crash = true } },
+    { name = "A3", from = 1, to = bars, transpose = 2 },
+  }
+end
+
+-- Cuts and joins `tracks` (each { inst, role, vol, notes } in beats over
+-- one pass; role = the part it plays, inst = the instrument it plays on)
+-- into the sections of `form`; returns the new tracks and the total bars.
+-- `melody` is the melody track's role.
+function A.arrangeForm(tracks, form, melody)
+  local instOf = {}
+  for _, t in ipairs(tracks) do instOf[t.role or t.inst] = instOf[t.role or t.inst] or t.inst end
+  local byInst, order = {}, {}
+  local function out(inst, vol)
+    local key = inst .. "@" .. tostring(vol)
+    if not byInst[key] then
+      byInst[key] = { inst = inst, vol = vol, notes = {} }
+      order[#order + 1] = byInst[key]
+    end
+    return byInst[key].notes
+  end
+  local at = 0   -- bars so far
+  for _, sec in ipairs(form) do
+    local mute = {}
+    for role in pairs(sec.mute or {}) do mute[role == "melody" and melody or role] = true end
+    local swap = {}
+    for a, b in pairs(sec.swap or {}) do
+      a = (a == "melody") and melody or a
+      b = (b == "melody") and melody or b
+      swap[a], swap[b] = b, a
+    end
+    local lo, hi = (sec.from - 1) * 4, sec.to * 4
+    local shift = (at - (sec.from - 1)) * 4
+    for _, t in ipairs(tracks) do
+      local role = t.role or t.inst
+      if not mute[role] then
+        local inst = (swap[role] and instOf[swap[role]]) or t.inst
+        local dest = out(inst, t.vol)
+        local tr = A.drumParts[role] and 0 or (sec.transpose or 0)
+        for _, n in ipairs(t.notes) do
+          if n[1] >= lo - 1e-9 and n[1] < hi - 1e-9 then
+            dest[#dest + 1] = { n[1] + shift, math.min(n[2], hi - n[1]), n[3] + tr, n[4] }
+          end
+        end
+      end
+    end
+    at = at + (sec.to - sec.from + 1)
+  end
+  return order, at
+end
+
 -- Swing: moves off-beat notes later (0.5 = straight, 0.667 = triplet
 -- shuffle), stretching everything within each beat to match.
 function A.swing(notes, amount)

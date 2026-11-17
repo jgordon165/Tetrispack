@@ -19,7 +19,7 @@ end
 
 -- The sound engines, in menu order (Windows MIDI only with a SoundFont).
 jukebox.styles = {}
-for _, id in ipairs({ "midi", "snes", "genesis", "opl3" }) do
+for _, id in ipairs({ "winfm", "midi", "snes", "genesis", "opl3" }) do
   if id ~= "midi" or jukebox.soundfont then
     jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
   end
@@ -67,6 +67,7 @@ function jukebox.tracks(song, style)
     for i, t in ipairs(tracks) do
       local nt = {}
       for k, v in pairs(t) do nt[k] = v end
+      nt.role = t.role or t.inst
       nt.inst = (p.voices or {})[t.inst] or t.inst
       if p.swing then
         nt.notes = A.swing(t.notes or mml.parse(t.mml), p.swing)
@@ -79,6 +80,16 @@ function jukebox.tracks(song, style)
   return tracks
 end
 
+-- The whole piece: the song's tracks cut into its form (A.form), all as
+-- note lists in beats. Returns the tracks and the length in bars.
+function jukebox.piece(song, style)
+  local tracks = {}
+  for i, t in ipairs(jukebox.tracks(song, style)) do
+    tracks[i] = { inst = t.inst, role = t.role or t.inst, vol = t.vol, notes = t.notes or mml.parse(t.mml) }
+  end
+  return A.arrangeForm(tracks, song.form or A.form(song.bars), song.melody or "lead")
+end
+
 function jukebox.tempo(song, style)
   local p = jukebox.profile(song, style)
   return p.tempo and p.tempo(song.tempo) or song.tempo
@@ -89,13 +100,15 @@ function jukebox.build(song, style)
   style = style or "snes"
   local set = instruments[style] or error("no such music style " .. tostring(style))
   local spb = 60 / jukebox.tempo(song, style)
-  local beats = song.bars * 4
-  local out = { engine = style, instruments = {}, notes = {}, length = beats * spb, soundfont = jukebox.soundfont }
+  local tracks, bars = jukebox.piece(song, style)
+  local beats = bars * 4
+  local out = { engine = jukebox.profile(song, style).engine or style, instruments = {}, notes = {},
+                length = beats * spb, soundfont = jukebox.soundfont }
   -- The SNES echo: a dotted-eighth-ish delay, up to the chip's 240 ms.
   local echo = jukebox.profile(song, style).echo or {}
   out.echo = { delay = math.min(0.24, 0.75 * spb), feedback = echo.feedback or 0.42, volume = echo.volume or 0.32 }
   local index = {}
-  for _, t in ipairs(jukebox.tracks(song, style)) do
+  for _, t in ipairs(tracks) do
     local inst = set[t.inst]
     if inst == nil then error(("%s has no instrument %s"):format(style, tostring(t.inst))) end
     if inst then
@@ -130,8 +143,8 @@ jukebox.styleNames = {}
 for _, s in ipairs(jukebox.styles) do jukebox.styleNames[#jukebox.styleNames + 1] = s.name end
 
 jukebox.choice = "By Level"
--- On Windows, Windows MIDI by default (when the SoundFont is there).
-jukebox.style = (jukebox.soundfont and tp.platform and tp.platform() == "Windows") and "Windows MIDI" or "Super NES"
+-- Windows FM MIDI by default: the sound of the original's own era.
+jukebox.style = "Windows FM MIDI"
 jukebox.volume = 7          -- 0-10
 local current = nil         -- "song/style" playing
 

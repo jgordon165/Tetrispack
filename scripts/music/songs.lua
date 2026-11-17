@@ -9,7 +9,12 @@
 -- as `bass` and `drums`, built per sound engine by music/jukebox.lua, which
 -- may restyle them - a moving bass line and drums with fills. Each track
 -- names an instrument (music/instruments.lua), which the chosen engine
--- plays its own way.
+-- plays its own way. `melody` names the melody's track (default "lead").
+--
+-- What's written here is one pass of each song; music/jukebox.lua plays it
+-- as a full piece (A.form): an intro, the song, the song again with the
+-- melody and harmony swapping instruments, a breakdown, and a last time a
+-- whole step higher.
 local A = require("music.arrange")
 
 local function bars(s, n) return (s .. " "):rep(n) end
@@ -75,7 +80,7 @@ do
 end
 
 -- 3. Samovar (levels 5-6): a Russian dance, accordion and balalaika ---------
-local samovar = { name = "Samovar", tempo = 144, bars = 16 }
+local samovar = { name = "Samovar", tempo = 144, bars = 16, melody = "accordion" }
 do
   local melody = "q7 " .. join({
     "o5 a4 a8 g8 f4 e8 d8", "o5 c+4 e4 a2", "o5 g8 f8 e8 d8 c+4 <a4", "o5 d2. r4",
@@ -98,7 +103,7 @@ do
 end
 
 -- 4. Midnight Desktop (levels 7-8): slow and moody ---------------------------
-local midnight = { name = "Midnight Desktop", tempo = 100, bars = 16 }
+local midnight = { name = "Midnight Desktop", tempo = 100, bars = 16, melody = "bells" }
 do
   local mel = { "o5 b2 a4 g4", "o5 e2. r4", "o5 c4 e4 a4 g4", "o5 f+2. r4",
     "o5 g4 a4 b4 >d4", "o6 c2 <b4 g4", "o5 a2 f+4 d4", "o5 d+2 f+4 b4",
