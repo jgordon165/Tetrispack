@@ -10,10 +10,19 @@ local profiles = require("music.styles")
 
 local jukebox = { songs = songs }
 
--- The sound engines, in menu order.
+-- The bundled GS SoundFont, for the Windows MIDI style.
+jukebox.soundfont = nil
+if tp and tp.base_path then
+  local path = tp.base_path() .. "soundfont/GeneralUser-GS.sf2"
+  if tp.music_soundfont(path) then jukebox.soundfont = path end
+end
+
+-- The sound engines, in menu order (Windows MIDI only with a SoundFont).
 jukebox.styles = {}
-for _, id in ipairs({ "snes", "genesis", "opl3" }) do
-  jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
+for _, id in ipairs({ "midi", "snes", "genesis", "opl3" }) do
+  if id ~= "midi" or jukebox.soundfont then
+    jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
+  end
 end
 
 -- The tracks of `song` as `style` arranges it: the song's own tracks, plus
@@ -54,7 +63,7 @@ function jukebox.build(song, style)
   local set = instruments[style] or error("no such music style " .. tostring(style))
   local spb = 60 / jukebox.tempo(song, style)
   local beats = song.bars * 4
-  local out = { engine = style, instruments = {}, notes = {}, length = beats * spb }
+  local out = { engine = style, instruments = {}, notes = {}, length = beats * spb, soundfont = jukebox.soundfont }
   -- The SNES echo: a dotted-eighth-ish delay, up to the chip's 240 ms.
   local echo = (profiles[style] or {}).echo or {}
   out.echo = { delay = math.min(0.24, 0.75 * spb), feedback = echo.feedback or 0.42, volume = echo.volume or 0.32 }
@@ -94,7 +103,8 @@ jukebox.styleNames = {}
 for _, s in ipairs(jukebox.styles) do jukebox.styleNames[#jukebox.styleNames + 1] = s.name end
 
 jukebox.choice = "By Level"
-jukebox.style = "Super NES"
+-- On Windows, Windows MIDI by default (when the SoundFont is there).
+jukebox.style = (jukebox.soundfont and tp.platform and tp.platform() == "Windows") and "Windows MIDI" or "Super NES"
 jukebox.volume = 7          -- 0-10
 local current = nil         -- "song/style" playing
 

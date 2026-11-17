@@ -161,4 +161,35 @@ I.snes = {
   tom = s("tom", drum, { gain = 0.75, echo = 0.2, priority = 2 }),
 }
 
+-- Windows MIDI: General MIDI programs on a GS SoundFont ----------------------
+-- (program numbers 0-127, as in a .MID file; drums on channel 10, kit 0).
+local function gm(program, extra)
+  local t = { kind = "gm", program = program }
+  for k, v in pairs(extra or {}) do t[k] = v end
+  return t
+end
+local function kit(key, extra)
+  local t = { kind = "gm", program = 0, drums = true, key = key }
+  for k, v in pairs(extra or {}) do t[k] = v end
+  return t
+end
+I.midi = {
+  lead = gm(80, { gain = 0.85 }),                       -- Square Lead
+  harmony = gm(71, { gain = 0.7, pan = -0.35 }),        -- Clarinet
+  arp = gm(11, { gain = 0.55, pan = 0.4 }),             -- Vibraphone
+  epiano = gm(4, { gain = 0.7, pan = 0.2 }),            -- Electric Piano 1
+  bass = gm(33, { gain = 0.95 }),                       -- Fingered Bass
+  pad = gm(48, { gain = 0.6, pan = -0.15 }),            -- String Ensemble
+  accordion = gm(21, { gain = 0.85 }),                  -- Accordion
+  bells = gm(9, { gain = 0.6, pan = 0.35 }),            -- Glockenspiel
+  pluck = gm(105, { gain = 0.7, pan = 0.3 }),           -- Banjo (for the balalaika)
+  stabs = gm(61, { gain = 0.6 }),                       -- Brass Section
+  kick = kit(36, { gain = 0.95 }),
+  snare = kit(38, { gain = 0.8 }),
+  hat = kit(42, { gain = 0.55 }),
+  open = kit(46, { gain = 0.5 }),
+  crash = kit(49, { gain = 0.6 }),
+  tom = kit(-1, { gain = 0.8 }),                        -- the fills' notes are GM tom keys
+}
+
 return I

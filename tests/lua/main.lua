@@ -214,6 +214,9 @@ do
   local bassSnes
   for _, t in ipairs(snes) do if t.inst == "bass" then bassSnes = t end end
   check(#bassSnes.notes == koro.bars * 16, "snes bass in sixteenths")
+  check(jukebox.soundfont ~= nil, "the GS SoundFont loads (Windows MIDI)")
+  local midi = jukebox.build(koro, "midi")
+  check(midi.soundfont == jukebox.soundfont and #midi.instruments > 5, "midi build names the SoundFont")
   check(jukebox.songFor(1) == 1 and jukebox.songFor(2) == 1 and jukebox.songFor(5) == 3 and jukebox.songFor(10) == 5,
         "a song per pair of levels")
   jukebox.choice = "Samovar"; check(jukebox.songFor(1) == 3, "a chosen song")

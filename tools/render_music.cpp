@@ -2,11 +2,13 @@
 // instrument) without playing the game:
 //   tetrispack_render_music <scripts dir> <out dir> [style] [seconds]
 // writes one file per song (scripts/music/songs.lua) for each style
-// (snes, genesis, opl3; default all), each one pass of the song unless
-// `seconds` is given.
+// (midi, snes, genesis, opl3; default all), each one pass of the song unless
+// `seconds` is given. Windows MIDI needs soundfont/GeneralUser-GS.sf2 next to
+// this tool (the build puts it there).
 
 #include "music/player.h"
 #include "music/song_lua.h"
+#include "music/soundfont.h"
 
 extern "C" {
 #include "lauxlib.h"
@@ -18,6 +20,8 @@ extern "C" {
 #include <cstdlib>
 #include <string>
 #include <vector>
+
+static std::string g_base;   // the folder this tool runs from
 
 static void writeWav(const std::string& path, const std::vector<int16_t>& pcm, int rate) {
     FILE* f = std::fopen(path.c_str(), "wb");
@@ -42,6 +46,21 @@ int main(int argc, char** argv) {
     const double seconds = argc > 4 ? std::atof(argv[4]) : 0;
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
+    // The little of the game's tp table the jukebox needs to find the SoundFont.
+    lua_newtable(L);
+    lua_pushcfunction(L, [](lua_State* S) -> int {
+        lua_pushboolean(S, music::loadSoundFont(luaL_checkstring(S, 1)));
+        return 1;
+    });
+    lua_setfield(L, -2, "music_soundfont");
+    {
+        const std::string exe = argv[0];
+        const size_t slash = exe.find_last_of("/\\");
+        g_base = slash == std::string::npos ? "./" : exe.substr(0, slash + 1);
+    }
+    lua_pushcfunction(L, [](lua_State* S) -> int { lua_pushstring(S, g_base.c_str()); return 1; });
+    lua_setfield(L, -2, "base_path");
+    lua_setglobal(L, "tp");
     const std::string setup = "package.path = '" + scripts + "/?.lua;' .. package.path\n"
         "local j = require('music.jukebox')\n"
         "local out = {}\n"

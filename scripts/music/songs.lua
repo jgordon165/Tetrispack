@@ -27,7 +27,7 @@ local function padLine(chords, voicing, halves)
 end
 
 -- 1. Korobeiniki (levels 1-2) ------------------------------------------------
-local koro = { name = "Korobeiniki", tempo = 150, bars = 24 }
+local koro = { name = "Korobeiniki", tempo = 126, bars = 24 }
 do
   local A1 = "o5 e4 <b8 >c8 d4 c8 <b8 | a4 a8 >c8 e4 d8 c8 | <b4. >c8 d4 e4 | c4 <a4 a2 |"
   local A2 = "o5 r8 d4 f8 a4 g8 f8 | e4. c8 e4 d8 c8 | <b4 b8 >c8 d4 e4 | c4 <a4 a4 r4 |"
@@ -120,7 +120,7 @@ do
 end
 
 -- 5. Steppe Express (levels 9-10): fast, driving, harmonic minor -------------
-local steppe = { name = "Steppe Express", tempo = 172, bars = 16 }
+local steppe = { name = "Steppe Express", tempo = 146, bars = 16 }
 do
   local mel = join({
     "o5 e8 f+8 g8 a8 b4 b4", "o5 b8 >c8 <b8 a8 g4 e4", "o5 a8 b8 >c8 <b8 a4 e4", "o5 d+8 e8 f+8 g8 f+4 <b4",

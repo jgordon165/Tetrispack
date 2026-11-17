@@ -68,21 +68,28 @@ the background: *Korobeiniki* (the public-domain folk song behind Tetris,
 arranged for the port), *Program Manager*, *Samovar*, *Midnight Desktop* and
 *Steppe Express* (originals). Each is arranged game-style: the melody with a
 harmony line, chip arpeggios, a moving bass line, drums with fills and
-crashes. Options > Music Style plays them as a console would:
+crashes. Options > Music Style plays them as a console - or a 1990s PC - would:
+
+- **Windows MIDI** (the default on Windows): General MIDI on a GS
+  SoundFont, the Roland Sound Canvas sound of Windows' MIDI playback -
+  square lead, clarinet, fingered bass, strings, vibraphone, the GS drum
+  kit, room reverb. The build downloads S. Christian Collins' GeneralUser
+  GS (free to redistribute, pinned by hash) into `soundfont/`; any GS or
+  GM .sf2 named `GeneralUser-GS.sf2` there works. TinySoundFont plays it.
 
 - **Super NES**: eight sampled voices at 32 kHz with soft interpolation and
   the S-DSP's echo (the samples are synthesized by the port, not taken from
   any game).
 - **Mega Drive**: a YM2612 (ymfm) for six four-operator FM voices, and an
   SN76489 PSG for square-wave arpeggios and noise drums.
-- **Sound Blaster**: an OPL3 (ymfm), 1990s PC MIDI.
+- **Sound Blaster**: an OPL3 (ymfm), 1990s PC FM music.
 
 Music picks By Level, one song, or Off; Music Volume sets the level. The
 melodies are text in `scripts/music/songs.lua` (a small MML,
 `scripts/music/mml.lua`), the accompaniment is generated from each song's
 chords (`scripts/music/arrange.lua`), and every engine's instruments are in
 `scripts/music/instruments.lua`. To hear them outside the game,
-`tetrispack_render_music scripts out/ [snes|genesis|opl3]` writes a .wav
+`tetrispack_render_music scripts out/ [midi|snes|genesis|opl3]` writes a .wav
 per song.
 
 **Controller** (SDL game controllers; the layout the Xbox 360 build will

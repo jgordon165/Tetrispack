@@ -2,10 +2,12 @@
 // in tune, loops wrap, fades and stops end in silence, pause holds still.
 
 #include "music/player.h"
+#include "music/soundfont.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <string>
 #include <memory>
 #include <vector>
 
@@ -44,6 +46,10 @@ static Instrument tone(Engine e) {
             in.kind = Kind::Sample;
             in.wave = Wave::Sine;
             break;
+        case Engine::Midi:
+            in.kind = Kind::Gm;
+            in.program = 73;                // Flute: nearly a sine
+            break;
     }
     return in;
 }
@@ -71,7 +77,39 @@ static int measuredHz(std::shared_ptr<Song> song) {
     return crossings;
 }
 
-int main() {
+// Pitch by autocorrelation (for sampled instruments rich in harmonics).
+static double autocorrHz(std::shared_ptr<Song> song) {
+    Player p;
+    p.setVolume(1);
+    p.play(song, 0);
+    render(p, 0.5);
+    const auto buf = render(p, 0.5);
+    const int rate = 48000, n = rate / 4;
+    int best = 0;
+    double bestC = -1;
+    for (int lag = rate / 2000; lag < rate / 60; ++lag) {
+        double c = 0;
+        for (int i = 0; i < n; ++i) c += double(buf[2 * i]) * buf[2 * (i + lag)];
+        if (c > bestC) { bestC = c; best = lag; }
+    }
+    return double(rate) / best;
+}
+
+int main(int, char** argv) {
+    // Windows MIDI: only with the SoundFont the build downloads next to the tests.
+    std::string sf = argv[0];
+    sf = sf.substr(0, sf.find_last_of("/\\") + 1) + "soundfont/GeneralUser-GS.sf2";
+    const bool haveSf = loadSoundFont(sf);
+    if (haveSf) {
+        auto song = oneNote(Engine::Midi, tone(Engine::Midi), 69);
+        song->soundfont = sf;
+        const double hz = autocorrHz(song);
+        std::printf("midi: A4 %.1f Hz\n", hz);
+        CHECK(std::abs(hz - 440) <= 5);
+    } else {
+        std::printf("midi: no SoundFont at %s, skipped\n", sf.c_str());
+    }
+
     for (Engine e : {Engine::Opl3, Engine::Genesis, Engine::Snes}) {
         const char* name = e == Engine::Opl3 ? "opl3" : e == Engine::Genesis ? "genesis" : "snes";
         const int a4 = measuredHz(oneNote(e, tone(e), 69)), a2 = measuredHz(oneNote(e, tone(e), 45));

@@ -5,7 +5,7 @@
 -- synth bass jumping octaves, power-chord stabs on the off-beats, a rock
 -- beat with open hats, quick fills - played on bright saw and pulse
 -- samples with the echo. The Mega Drive and the Sound Blaster keep each
--- song's own bass line and beat.
+-- song's own bass line and beat, as does Windows MIDI.
 local function clamp(x, lo, hi) return math.max(lo, math.min(hi, x)) end
 
 return {
@@ -20,4 +20,8 @@ return {
   },
   genesis = { name = "Mega Drive" },
   opl3 = { name = "Sound Blaster" },
+  -- General MIDI on a GS SoundFont, as Windows played .MID files through a
+  -- Roland Sound Canvas or its GS wavetable synth: the song's own
+  -- arrangement, with held strings, on real-instrument programs.
+  midi = { name = "Windows MIDI" },
 }

@@ -4,6 +4,7 @@
 #include "formats/dib.h"
 #include "input.h"
 #include "music/song_lua.h"
+#include "music/soundfont.h"
 
 extern "C" {
 #include "lauxlib.h"
@@ -177,6 +178,23 @@ int l_music_stop(lua_State* L) { eng(L)->audio.stop(luaL_optnumber(L, 1, 0.6)); 
 int l_music_pause(lua_State* L) { eng(L)->audio.setPaused(lua_toboolean(L, 1)); return 0; }
 int l_music_volume(lua_State* L) { eng(L)->audio.setVolume(float(luaL_checknumber(L, 1))); return 0; }
 int l_music_position(lua_State* L) { lua_pushnumber(L, eng(L)->audio.position()); return 1; }
+// tp.music_soundfont(path) -> true if the .sf2 loaded (Windows MIDI style)
+int l_music_soundfont(lua_State* L) {
+    lua_pushboolean(L, music::loadSoundFont(luaL_checkstring(L, 1)));
+    return 1;
+}
+
+// tp.platform() -> "Windows", "Linux", "Mac OS X", ... (SDL's names)
+int l_platform(lua_State* L) { lua_pushstring(L, SDL_GetPlatform()); return 1; }
+
+// tp.base_path() -> the folder the game runs from, with a trailing separator
+int l_base_path(lua_State* L) {
+    char* b = SDL_GetBasePath();
+    lua_pushstring(L, b ? b : "./");
+    SDL_free(b);
+    return 1;
+}
+
 int l_has_audio(lua_State* L) { lua_pushboolean(L, eng(L)->audio.isOpen()); return 1; }
 
 }  // namespace
@@ -190,7 +208,8 @@ void registerLuaApi(lua_State* L, Engine* e) {
         {"key_down", l_key_down}, {"ticks", l_ticks}, {"title", l_title},
         {"quit", l_quit}, {"log", l_log},
         {"music_play", l_music_play}, {"music_stop", l_music_stop}, {"music_pause", l_music_pause},
-        {"music_volume", l_music_volume}, {"music_position", l_music_position}, {"has_audio", l_has_audio},
+        {"music_volume", l_music_volume}, {"music_soundfont", l_music_soundfont},
+        {"platform", l_platform}, {"base_path", l_base_path}, {"music_position", l_music_position}, {"has_audio", l_has_audio},
         {nullptr, nullptr},
     };
     lua_newtable(L);

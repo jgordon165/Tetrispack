@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace music {
@@ -13,6 +14,7 @@ enum class Engine {
     Opl3,     // Sound Blaster 16 FM (ymfm YMF262): 18 two-operator voices
     Genesis,  // Mega Drive: YM2612 (ymfm) six four-operator FM voices + SN76489 PSG
     Snes,     // Super NES style: eight sampled voices, Gaussian-ish interpolation, echo
+    Midi,     // Windows MIDI: General MIDI on a GS SoundFont (TinySoundFont), room reverb
 };
 
 // OPL two-operator patch (OPL register fields).
@@ -47,7 +49,7 @@ enum class Wave {
     Kick, Snare, Hat, Crash, Pluck, Tom, OpenHat, Count
 };
 
-enum class Kind { Opl, Fm4, PsgTone, PsgNoise, Sample };
+enum class Kind { Opl, Fm4, PsgTone, PsgNoise, Sample, Gm };
 
 struct Instrument {
     Kind kind = Kind::Opl;
@@ -63,6 +65,8 @@ struct Instrument {
     float glide = 0;           // SNES: seconds to slide from the previous note (portamento)
     int priority = 1;          // SNES: who keeps a voice when all eight are busy
     int fixedKey = -1;         // drums: always this MIDI key
+    int program = 0, bank = 0; // Windows MIDI: General MIDI program (0-127), GS bank
+    bool drums = false;        // Windows MIDI: on the drum channel (program = kit)
 };
 
 struct Note {
@@ -79,6 +83,7 @@ struct Song {
     double length = 0;             // seconds; the song loops here
     // SNES echo: delay, feedback, volume.
     float echoDelay = 0.24f, echoFeedback = 0.45f, echoVolume = 0.35f;
+    std::string soundfont;         // Windows MIDI: the .sf2 (loaded with loadSoundFont)
 };
 
 }  // namespace music

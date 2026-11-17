@@ -1,8 +1,10 @@
 // A song from its Lua table (what scripts/music/jukebox.lua builds):
-//   { engine = "opl3" | "genesis" | "snes", length = seconds,
+//   { engine = "opl3" | "genesis" | "snes" | "midi", length = seconds,
+//     soundfont = path,                                          -- midi (see loadSoundFont)
 //     echo = { delay, feedback, volume },                         -- snes
 //     instruments = { {
-//         kind = "opl" | "fm4" | "psg" | "noise" | "sample",
+//         kind = "opl" | "fm4" | "psg" | "noise" | "sample" | "gm",
+//         program, bank, drums,                                   -- gm
 //         opl = { mod = {mult, tl, ar, dr, sl, rr, ws, ksl, vib, am, sustain, ksr},
 //                 car = {...}, feedback, additive },
 //         fm4 = { alg, fb, ams, fms, ops = { {dt, mul, tl, ks, ar, d1r, d2r, d1l, rr, am} x4 } },

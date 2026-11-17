@@ -62,7 +62,7 @@ Instrument instrument(lua_State* L, int t) {
     Instrument in;
     const std::string kind = str(L, t, "kind", "opl");
     in.kind = kind == "fm4" ? Kind::Fm4 : kind == "psg" ? Kind::PsgTone : kind == "noise" ? Kind::PsgNoise
-            : kind == "sample" ? Kind::Sample : Kind::Opl;
+            : kind == "sample" ? Kind::Sample : kind == "gm" ? Kind::Gm : Kind::Opl;
     if (const int o = sub(L, t, "opl")) {
         in.opl.mod = oplOp(L, o, "mod");
         in.opl.car = oplOp(L, o, "car");
@@ -108,6 +108,11 @@ Instrument instrument(lua_State* L, int t) {
     in.fixedKey = int(num(L, t, "key", -1));
     in.glide = float(num(L, t, "glide", 0));
     in.priority = int(num(L, t, "priority", 1));
+    in.program = int(num(L, t, "program", 0));
+    in.bank = int(num(L, t, "bank", 0));
+    lua_getfield(L, t, "drums");
+    in.drums = lua_toboolean(L, -1) != 0;
+    lua_pop(L, 1);
     return in;
 }
 
@@ -117,7 +122,9 @@ std::shared_ptr<Song> songFromLua(lua_State* L, int index) {
     index = lua_absindex(L, index);
     auto song = std::make_shared<Song>();
     const std::string engine = str(L, index, "engine", "opl3");
-    song->engine = engine == "genesis" ? Engine::Genesis : engine == "snes" ? Engine::Snes : Engine::Opl3;
+    song->engine = engine == "genesis" ? Engine::Genesis : engine == "snes" ? Engine::Snes
+                 : engine == "midi" ? Engine::Midi : Engine::Opl3;
+    song->soundfont = str(L, index, "soundfont", "");
     song->length = num(L, index, "length", 0);
     if (const int e = sub(L, index, "echo")) {
         song->echoDelay = float(num(L, e, "delay", song->echoDelay));
