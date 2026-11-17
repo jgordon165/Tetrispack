@@ -92,6 +92,11 @@ chords (`scripts/music/arrange.lua`), and every engine's instruments are in
 `tetrispack_render_music scripts out/ [midi|snes|genesis|opl3]` writes a .wav
 per song.
 
+**Sound effects.** A short rising blip when a piece rotates and a soft
+thud when it lands (dropped or by gravity), synthesized by the port
+(`src/music/sfx.cpp`) and mixed over whichever music style is playing.
+Options > Sound Effects sets their volume.
+
 **Controller** (SDL game controllers; the layout the Xbox 360 build will
 use): D-pad moves, Up or A rotates, Down or B drops, the shoulder buttons
 slide to the wall, Start opens the menu, Back pauses.

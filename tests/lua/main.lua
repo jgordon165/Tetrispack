@@ -73,6 +73,7 @@ do
   check(before == Board.piece_points * 3, "landing scores 6 x level")
   check(b:collapse() == 1, "collapse removes it")
   check(b.lines == 1, "lines counted")
+  check(b.placed == 1, "a landing counted (for its sound)")
   check(b.score == before + 100, "single line: 100")
   for x = 0, 9 do check(b.grid[19][x] == nil, "row emptied at x=" .. x) end
 end

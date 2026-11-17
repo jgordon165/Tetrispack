@@ -25,6 +25,7 @@ bool Audio::open() {
         return false;
     }
     rate_ = have.freq;
+    sfx_.prepare(rate_);
     SDL_PauseAudioDevice(dev_, 0);
     return true;
 }
@@ -33,6 +34,7 @@ void Audio::callback(void* user, Uint8* stream, int len) {
     auto* self = static_cast<Audio*>(user);
     std::memset(stream, 0, size_t(len));
     self->synth_.render(reinterpret_cast<int16_t*>(stream), len / 4, self->rate_);
+    self->sfx_.render(reinterpret_cast<int16_t*>(stream), len / 4);
 }
 
 void Audio::play(std::shared_ptr<const music::Song> song, double fade) {
@@ -69,4 +71,18 @@ double Audio::position() {
     const double p = synth_.position();
     SDL_UnlockAudioDevice(dev_);
     return p;
+}
+
+void Audio::playSfx(const std::string& name, float gain) {
+    if (!dev_) return;
+    SDL_LockAudioDevice(dev_);
+    sfx_.play(name, gain);
+    SDL_UnlockAudioDevice(dev_);
+}
+
+void Audio::setSfxVolume(float v) {
+    if (!dev_) return;
+    SDL_LockAudioDevice(dev_);
+    sfx_.setVolume(v);
+    SDL_UnlockAudioDevice(dev_);
 }
