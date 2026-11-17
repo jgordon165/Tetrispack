@@ -13,6 +13,10 @@
 // "snes-it" writes the SNES style as Impulse Tracker modules (song<n>.it)
 // for the SNES build's SNESMOD driver, and "sfx-it [rate]" the sound effects
 // as one module of samples (sfx.it, default 8000 Hz); see consoles/snes.
+// "loop-wav <style> [rate]" writes each song for hosts that can't synthesize
+// (the Xbox 360 build) as <style>_<n>.wav: exactly one loop long, the last
+// notes' release wrapped onto the start so it loops without a seam
+// (default 32000 Hz); "sfx-wav 44100" writes the sound effects to go with it.
 
 #include "music/player.h"
 #include "music/song_lua.h"
@@ -123,6 +127,9 @@ int main(int argc, char** argv) {
     const std::string only = argc > 3 ? argv[3] : "";
     if (only == "sfx-wav") return writeSfx(out, argc > 4 ? std::atoi(argv[4]) : 13300);
     if (only == "sfx-it") return writeSfxIt(out, argc > 4 ? std::atoi(argv[4]) : 8000);
+    const bool loopWav = only == "loop-wav";
+    const std::string loopStyle = loopWav && argc > 4 ? argv[4] : "winfm";
+    const int loopRate = loopWav && argc > 5 ? std::atoi(argv[5]) : 32000;
     const double seconds = argc > 4 ? std::atof(argv[4]) : 0;
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
@@ -179,7 +186,8 @@ int main(int argc, char** argv) {
         const std::string style = lua_tostring(L, -1);
         lua_pop(L, 1);
         const bool vgmOut = only == "genesis-vgm", itOut = only == "snes-it";
-        if (!only.empty() && only != style && !(vgmOut && style == "genesis") && !(itOut && style == "snes")) {
+        if (loopWav ? style != loopStyle
+                    : (!only.empty() && only != style && !(vgmOut && style == "genesis") && !(itOut && style == "snes"))) {
             lua_pop(L, 1);
             continue;
         }
@@ -190,6 +198,23 @@ int main(int argc, char** argv) {
         auto song = music::songFromLua(L, -1);
         lua_pop(L, 2);
 
+        if (loopWav) {
+            music::Player synth;
+            synth.setVolume(1.0f);
+            synth.play(song, 0);
+            const size_t loop = size_t(song->length * loopRate), tail = size_t(2.0 * loopRate);
+            std::vector<int16_t> pcm((loop + tail) * 2, 0);
+            synth.render(pcm.data(), int(pcm.size() / 2), loopRate);
+            for (size_t k = 0; k < tail * 2 && k < loop * 2; ++k) {
+                const int v = pcm[k] + pcm[loop * 2 + k];
+                pcm[k] = int16_t(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+            }
+            pcm.resize(loop * 2);
+            const std::string path = out + "/" + loopStyle + "_" + name.substr(0, name.find('_')) + ".wav";
+            writeWav(path, pcm, loopRate);
+            std::printf("%s: %.1f s\n", path.c_str(), song->length);
+            continue;
+        }
         if (itOut) {
             music::ItSettings st;
             st.title = name.substr(name.find('_') + 1);
