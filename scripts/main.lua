@@ -8,6 +8,7 @@ local skin = require("game.skin")
 local layout = require("game.layout")
 local input = require("ui.input")
 local Panel = require("ui.panel")
+local About = require("ui.about")
 local jukebox = require("music.jukebox")
 
 local W, H = layout.w, layout.h
@@ -85,6 +86,11 @@ end
 
 local function running() return state == "play" or state == "pause" end
 
+-- The original's About box, centred on the window.
+local function openAbout()
+  push(About.new({ x = math.floor((W - About.W) / 2), y = math.floor((H - About.H) / 2) }))
+end
+
 local function settingsPanel()
   return Panel.new({ title = "Tetris", width = 280, visible = 13, rows = {
     { header = "GAME" },
@@ -158,7 +164,8 @@ local function settingsPanel()
           "Start\tMenu",
         })
       end },
-    { label = "About", action = function()
+    { label = "About Tetris", action = openAbout },
+    { label = "About Tetrispack", action = function()
         message("About", {
           "Tetrispack",
           "a port of Tetris for Windows 2.00",
@@ -190,12 +197,24 @@ do
   tp.title("Tetris for Windows")
   tp.sfx_volume(sfxVolume / 10)
   newBoard()
+  -- The intro: the About box over the waiting game, until OK.
+  openAbout()
 end
 
-function game.keypressed(key, rep)
+-- key: a key, controller or mouse name (ui/input.lua). Mouse clicks also
+-- pass the canvas position under the pointer (nil outside the canvas).
+function game.keypressed(key, rep, x, y)
   -- The top popup takes everything while one is open.
   if #popups > 0 then
     local top = popups[#popups]
+    if top.pointer then
+      local r = top:pointer(key, x, y)
+      if r == "close" then
+        popups[#popups] = nil
+        if #popups == 0 then closeAll() end
+        return
+      elseif r then return end
+    end
     local a = input.action("ui", key)
     if a == "menu" then closeAll(); return end
     if a and top:key(a) == "close" then

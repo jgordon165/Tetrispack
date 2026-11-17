@@ -7,6 +7,8 @@ package.path = (os.getenv("TETRISPACK_SCRIPTS") or "scripts") .. "/?.lua;" .. pa
 dofile((os.getenv("TETRISPACK_SCRIPTS") or "scripts") .. "/main.lua")
 local autoplay = require("game.autoplay")
 local lvl = tonumber(os.getenv("TETRISPACK_LEVEL") or "5")
+-- Past the intro (the About box) unless the scene is about it.
+if os.getenv("TETRISPACK_INTRO") ~= "1" then game.keypressed("return", false) end
 game.keypressed(tostring(lvl % 10), false)
 game.keypressed("f2", false)
 local pieces = tonumber(os.getenv("TETRISPACK_PIECES") or "30")

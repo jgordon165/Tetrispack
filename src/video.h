@@ -32,6 +32,10 @@ public:
     void draw(int handle, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh);
 
     void compose();   // canvas -> window, before screenshot() and present()
+    // A window position (mouse events, in window coordinates) to the canvas
+    // pixel under it, through compose()'s scaling and letterbox. False when
+    // it falls in the letterbox.
+    bool windowToCanvas(int wx, int wy, int& cx, int& cy) const;
     void present();
     // Saves what's in the window (the canvas as scaled to it) as a .bmp.
     bool screenshot(const std::string& path);

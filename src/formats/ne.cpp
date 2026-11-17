@@ -129,4 +129,20 @@ std::optional<std::string> NeFile::string(uint16_t id) const {
     return std::nullopt;
 }
 
+std::optional<std::string> NeFile::cstringStartingWith(const std::string& prefix) const {
+    if (prefix.empty()) return std::nullopt;
+    const auto begin = data_.begin(), end = data_.end();
+    for (auto it = std::search(begin, end, prefix.begin(), prefix.end()); it != end;
+         it = std::search(it + 1, end, prefix.begin(), prefix.end())) {
+        if (it != begin && *(it - 1) != 0) continue;   // must start a string
+        const auto stop = std::find(it, end, uint8_t{0});
+        if (stop == end) break;
+        std::string s(it, stop);
+        bool printable = true;
+        for (unsigned char c : s) printable = printable && c >= 0x20 && c < 0x7F;
+        if (printable) return s;
+    }
+    return std::nullopt;
+}
+
 }  // namespace tp

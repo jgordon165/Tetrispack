@@ -1,6 +1,7 @@
 #include "lua_api.h"
 
 #include "engine.h"
+#include "formats/dialog.h"
 #include "formats/dib.h"
 #include "input.h"
 #include "music/song_lua.h"
@@ -36,9 +37,14 @@ int l_has_data(lua_State* L) {
     return 2;
 }
 
-// tp.module() -> the executable's module name and its expected Windows version
+const std::optional<tp::NeFile>& moduleArg(lua_State* L, int i) {
+    return eng(L)->module(luaL_optstring(L, i, "exe"));
+}
+
+// tp.module(["about"]) -> the module name and its expected Windows version
+// (nil when that file isn't there)
 int l_module(lua_State* L) {
-    const auto& e = eng(L)->exe;
+    const auto& e = moduleArg(L, 1);
     if (!e) return 0;
     lua_pushstring(L, e->moduleName().c_str());
     lua_pushfstring(L, "%d.%d", e->expectedWindowsMajor(), e->expectedWindowsMinor());
@@ -64,9 +70,9 @@ int l_resources(lua_State* L) {
     return 1;
 }
 
-// tp.bitmap("NAME" or "#12" or 12) -> handle, width, height | nil, error
+// tp.bitmap("NAME" or "#12" or 12 [, "about"]) -> handle, width, height | nil, error
 int l_bitmap(lua_State* L) {
-    const auto& e = eng(L)->exe;
+    const auto& e = moduleArg(L, 2);
     if (!e) { lua_pushnil(L); lua_pushstring(L, "no game data"); return 2; }
     const tp::NeResource* r = lua_isinteger(L, 1)
         ? e->find(static_cast<uint16_t>(tp::ResType::Bitmap), static_cast<uint16_t>(lua_tointeger(L, 1)))
@@ -90,6 +96,51 @@ int l_string(lua_State* L) {
     const auto& e = eng(L)->exe;
     if (!e) return 0;
     const auto s = e->string(static_cast<uint16_t>(luaL_checkinteger(L, 1)));
+    if (!s) return 0;
+    lua_pushlstring(L, s->data(), s->size());
+    return 1;
+}
+
+// tp.dialog(id [, "about"]) -> { x, y, w, h, caption, controls = { { x, y, w, h,
+// id, style, class, text }, ... } } in dialog units | nil, error
+int l_dialog(lua_State* L) {
+    const auto& e = moduleArg(L, 2);
+    if (!e) { lua_pushnil(L); lua_pushstring(L, "no such file"); return 2; }
+    const tp::NeResource* r = e->find(static_cast<uint16_t>(tp::ResType::Dialog),
+                                      static_cast<uint16_t>(luaL_checkinteger(L, 1)));
+    if (!r) { lua_pushnil(L); lua_pushstring(L, "no such dialog"); return 2; }
+    try {
+        const tp::Dialog d = tp::decodeDialog(e->read(*r));
+        auto setInt = [L](const char* k, lua_Integer v) { lua_pushinteger(L, v); lua_setfield(L, -2, k); };
+        auto setStr = [L](const char* k, const std::string& v) { lua_pushlstring(L, v.data(), v.size()); lua_setfield(L, -2, k); };
+        lua_newtable(L);
+        setInt("x", d.x); setInt("y", d.y); setInt("w", d.w); setInt("h", d.h);
+        setInt("style", d.style);
+        setStr("caption", d.caption);
+        lua_newtable(L);
+        int n = 0;
+        for (const auto& c : d.controls) {
+            lua_newtable(L);
+            setInt("x", c.x); setInt("y", c.y); setInt("w", c.w); setInt("h", c.h);
+            setInt("id", c.id); setInt("style", c.style);
+            setStr("class", c.cls); setStr("text", c.text);
+            lua_rawseti(L, -2, ++n);
+        }
+        lua_setfield(L, -2, "controls");
+        return 1;
+    } catch (const std::exception& ex) {
+        lua_pushnil(L);
+        lua_pushstring(L, ex.what());
+        return 2;
+    }
+}
+
+// tp.exe_string(prefix [, "about"]) -> the first NUL-terminated string in the
+// file starting with prefix (text kept in the data segment), or nil
+int l_exe_string(lua_State* L) {
+    const auto& e = moduleArg(L, 2);
+    if (!e) return 0;
+    const auto s = e->cstringStartingWith(luaL_checkstring(L, 1));
     if (!s) return 0;
     lua_pushlstring(L, s->data(), s->size());
     return 1;
@@ -209,7 +260,7 @@ int l_has_audio(lua_State* L) { lua_pushboolean(L, eng(L)->audio.isOpen()); retu
 void registerLuaApi(lua_State* L, Engine* e) {
     static const luaL_Reg fns[] = {
         {"has_data", l_has_data}, {"module", l_module}, {"resources", l_resources},
-        {"bitmap", l_bitmap}, {"string", l_string},
+        {"bitmap", l_bitmap}, {"string", l_string}, {"dialog", l_dialog}, {"exe_string", l_exe_string},
         {"canvas", l_canvas}, {"clear", l_clear}, {"fill", l_fill}, {"text", l_text},
         {"text_width", l_text_width}, {"draw", l_draw},
         {"key_down", l_key_down}, {"ticks", l_ticks}, {"title", l_title},

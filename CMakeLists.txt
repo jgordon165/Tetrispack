@@ -116,7 +116,8 @@ endfunction()
 add_library(tetrispack_formats STATIC
     src/formats/binreader.cpp
     src/formats/ne.cpp
-    src/formats/dib.cpp)
+    src/formats/dib.cpp
+    src/formats/dialog.cpp)
 target_include_directories(tetrispack_formats PUBLIC src)
 tetrispack_warnings(tetrispack_formats)
 
