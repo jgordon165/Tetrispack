@@ -102,9 +102,10 @@ static std::vector<int16_t> renderSfx(const char* name, int rate) {
     return mono;
 }
 
-// Each sound effect on its own, mono.
+// Each sound effect on its own, mono (with the game-over sound, which the
+// SNES's effects module leaves out).
 static int writeSfx(int rate) {
-    for (const char* name : kSfxNames) {
+    for (const char* name : {"rotate", "place", "clear", "clear_big", "game_over"}) {
         const std::vector<int16_t> mono = renderSfx(name, rate);
         const std::string file = std::string(name) + ".wav";
         if (!writeWav(file, mono, rate, 1)) return 1;

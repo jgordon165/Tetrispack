@@ -148,6 +148,7 @@ add_executable(tetrispack
     src/video.cpp
     src/input.cpp
     src/audio.cpp
+    src/storage.cpp
     src/lua_api.cpp)
 target_link_libraries(tetrispack PRIVATE tetrispack_formats tetrispack_music SDL2::SDL2-static SDL2::SDL2main lua_static)
 tetrispack_warnings(tetrispack)

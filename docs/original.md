@@ -86,4 +86,7 @@ come from the screenshot rather than the template.
 
 - The rotation rule (which cell is the pivot, any wall kick).
 - The 16-colour path (1:22fc) and the score panel's own drawing code.
-- Starting rows, two-player mode, sound, high scores (`TETRIS.HST`).
+- Starting rows, two-player mode, sound. High scores: the file format is
+  known (docs/formats.md, `TETRIS.HST`) and dialogs 1 ("Tetris Experts")
+  and 3 (the Hall of Fame) give their layout and words; the port keeps its
+  own table in the same shape.

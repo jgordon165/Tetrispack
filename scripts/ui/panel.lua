@@ -7,6 +7,9 @@
 -- Rows:
 --   { header = "GAME" }                         section title, not selectable
 --   { text = "..." }                            a line of text ("a\tb": two columns)
+--   { cols = { "a", "b", "c" }, hot = bool }    a table row in opts.columns
+--                                               ({ { x =, w =, right = bool }, ... });
+--                                               hot rows stand out
 --   { label = "New Game", action = fn }         accept runs it
 --   { label = "Level", values = {...}, get = fn, set = fn }
 --                                               left / right (or accept) change it
@@ -33,6 +36,7 @@ function Panel.new(opts)
   p.width = opts.width or 280
   p.visible = math.min(opts.visible or 12, #p.rows)
   p.onclose = opts.onclose
+  p.columns = opts.columns
   p.top = 1
   p.sel = nil
   if opts.focus then p.sel = opts.focus else
@@ -153,7 +157,14 @@ function Panel:draw()
     local ry = cy + (i - self.top) * ROW_H
     local on = self:selectable(r)
     local hot = (i == self.sel)
-    if r.header then
+    if r.cols then
+      for k, c in ipairs(self.columns or {}) do
+        local s = tostring(r.cols[k] or "")
+        while s ~= "" and textWidth(s) > c.w do s = s:sub(1, -2) end   -- cut to the column
+        local cx = x + PAD + c.x + (c.right and c.w - textWidth(s) or 0)
+        text(cx, ry + 3, s, r.hot and YELLOW or (k == 1 and WHITE or GRAY))
+      end
+    elseif r.header then
       text(x + PAD, ry + 4, r.header, HEAD)
     elseif r.text then
       local a, b = r.text:match("^(.-)\t(.*)$")

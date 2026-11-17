@@ -300,6 +300,71 @@ do
   end
 end
 
+-- High scores: the original's TETRIS.HST, the top ten's rules, saving.
+do
+  local scores = require("game.scores")
+  -- A TETRIS.HST built here: ten 16-bit scores, then name / quote records.
+  local pad = function(s) return s .. string.rep("\0", 32 - #s) end
+  local hst = string.pack("<I2I2I2I2I2I2I2I2I2I2", 21597, 20301, 19996, 0, 0, 0, 0, 0, 0, 0)
+  hst = hst .. pad("hanzi") .. pad("hanzi") .. pad("") .. pad("Boa Peterson") .. pad("sas") .. pad("Petri")
+  for _ = 4, 10 do hst = hst .. pad("") .. pad("") end
+  local list = scores.parseHst(hst)
+  check(list and #list == 3, "TETRIS.HST: the scores that are set")
+  check(list[1].score == 21597 and list[1].name == "hanzi" and list[2].quote == "Boa Peterson", "TETRIS.HST: names and quotes")
+  check(scores.parseHst("short") == nil, "TETRIS.HST: too short is no table")
+
+  local t = {}
+  for i = 1, 10 do t[i] = { score = 1000 - i * 10, name = "p" .. i, quote = "" } end
+  check(scores.qualifies(t, 991) and not scores.qualifies(t, 900) and not scores.qualifies({}, 0), "a score has to beat the tenth")
+  check(scores.insert(t, { score = 975, name = "new\tname", quote = "hi" }) == 3, "a new score goes in its place")
+  check(#t == 10 and t[10].score == 910 and t[3].name == "new name", "the table stays ten; tabs can't break the file")
+  check(scores.insert(t, { score = 5 }) == nil, "too low: no rank")
+  local back = scores.parse(scores.serialize(t))
+  check(#back == 10 and back[3].score == 975 and back[3].quote == "hi" and back[1].name == "p1", "the table survives saving")
+
+  local settings = require("game.settings")
+  local st = settings.parse(settings.serialize({ start_level = 5, preview = true, music = "By Level", name = "a=b" }))
+  check(st.start_level == 5 and st.preview == true and st.music == "By Level" and st.name == "a=b", "settings survive saving")
+end
+
+-- The game: a lost game plays its sound and, with a score that makes the
+-- table, asks for a name, then shows the table; options are saved.
+do
+  local heard = {}
+  local sfx = tp.sfx
+  tp.sfx = function(name, ...) heard[name] = (heard[name] or 0) + 1; return sfx(name, ...) end
+  dofile((os.getenv("TETRISPACK_SCRIPTS") or "scripts") .. "/main.lua")
+  local function top() local s = game.inspect(); return s.popups[#s.popups] end
+  game.keypressed("return", false)                                   -- past the About box
+  check(#game.inspect().popups == 0, "game: the intro closes")
+  game.keypressed("f2", false)
+  local s = game.inspect()
+  check(s.state == "play", "game: started")
+  -- Bury the spawn rows (each with a gap, so nothing clears) and land a piece.
+  for y = 0, 3 do s.board.grid[y] = { [0] = "I", "I", "I", "I", "I", "I", "I", "I", "I" } end
+  s.board.score = 4321
+  s.board:drop()
+  for _ = 1, 5 do game.update(1 / 60) end
+  s = game.inspect()
+  check(s.state == "over", "game: over")
+  check((heard.game_over or 0) == 1, "game: the game-over sound plays once")
+  local entry = top()
+  check(entry and entry.text and entry.score and entry.score >= 4321, "game: a high score asks for a name")
+  game.textinput("Ann")
+  game.keypressed("tab", false)
+  game.textinput("Hi!")
+  game.keypressed("return", false)                                   -- quote -> OK
+  game.keypressed("return", false)                                   -- OK
+  s = game.inspect()
+  check(s.highscores[1] and s.highscores[1].name == "Ann" and s.highscores[1].quote == "Hi!", "game: the new entry is in the table")
+  local board = top()
+  check(board and board.title == "Tetris Experts" and board.rows[1].hot, "game: the table shows, the new entry highlighted")
+  check(tp.storage_read("highscores"):find("Ann", 1, true), "game: the table is saved")
+  check(tp.storage_read("settings"):find("player_name=Ann", 1, true), "game: the name is remembered")
+  check(tp.storage_read("settings"):find("sfx_volume=1\n", 1, true), "game: sound effects default to 1")
+  tp.sfx = sfx
+end
+
 -- With data: the executable's resources are listed, backgrounds load.
 if tp.has_data() then
   check(#tp.resources() > 0, "[data] resources listed")
