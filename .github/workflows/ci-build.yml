@@ -10,7 +10,7 @@ on:
         description: Platforms to build
         type: choice
         default: all
-        options: [all, linux, mac-osx, windows, genesis]
+        options: [all, linux, mac-osx, windows, genesis, snes, xbox360]
 
 # Same rule as the Aleph One fork: build pushes, and pull requests only when
 # they come from another repository (a same-repo PR is already built by its push).
@@ -141,3 +141,73 @@ jobs:
             build-genesis/tetrispack-genesis.bin
             build-genesis/smoke/snap
             build-genesis/smoke/result.txt
+
+  snes:
+    if: (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name !=
+      github.event.pull_request.base.repo.full_name) &&
+      (github.event_name != 'workflow_dispatch' ||
+      inputs.platforms == 'all' || inputs.platforms == 'snes')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and smoke-test
+        uses: ./.github/actions/build-snes
+      - name: Upload the ROM and the smoke test's snapshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tetrispack-snes
+          if-no-files-found: ignore
+          path: |
+            build-snes/tetrispack-snes.sfc
+            build-snes/smoke/*.png
+            build-snes/smoke/result.txt
+
+  # Xbox 360: the XDK can't run on GitHub's runners, so default.xex builds on
+  # a self-hosted Windows runner with Visual Studio 2010 and the XDK, labelled
+  # self-hosted, windows, xdk. Set the repository variable XBOX360_RUNNER to
+  # true once it's online; until then both jobs are skipped. The content
+  # (scripts, pre-rendered music, sound effects) is staged on Linux.
+  xbox360-content:
+    if: vars.XBOX360_RUNNER == 'true' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name !=
+      github.event.pull_request.base.repo.full_name) &&
+      (github.event_name != 'workflow_dispatch' ||
+      inputs.platforms == 'all' || inputs.platforms == 'xbox360')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure host tools
+        uses: ./.github/actions/configure-linux
+      - name: Build the music tool
+        run: cmake --build build --parallel --target tetrispack_render_music
+      - name: Stage the content
+        run: consoles/xbox360/stage-content.sh stage/content
+      - uses: actions/upload-artifact@v6
+        with:
+          name: xbox360-content
+          path: stage/content
+          retention-days: 3
+
+  xbox360:
+    needs: xbox360-content
+    if: vars.XBOX360_RUNNER == 'true' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name !=
+      github.event.pull_request.base.repo.full_name) &&
+      (github.event_name != 'workflow_dispatch' ||
+      inputs.platforms == 'all' || inputs.platforms == 'xbox360')
+    runs-on: [self-hosted, windows, xdk]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build and package
+        uses: ./.github/actions/build-xbox360
+      - uses: actions/upload-artifact@v6
+        with:
+          name: tetrispack-xbox360
+          if-no-files-found: error
+          path: dist/*.zip

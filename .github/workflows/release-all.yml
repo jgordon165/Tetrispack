@@ -15,3 +15,9 @@ jobs:
 
   genesis:
     uses: ./.github/workflows/release-genesis.yml
+
+  snes:
+    uses: ./.github/workflows/release-snes.yml
+
+  xbox360:
+    uses: ./.github/workflows/release-xbox360.yml

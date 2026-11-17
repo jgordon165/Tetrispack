@@ -131,7 +131,8 @@ add_library(tetrispack_music STATIC
     src/music/engine_midi.cpp
     src/music/sfx.cpp
     src/music/song_lua.cpp
-    src/music/vgm.cpp)
+    src/music/vgm.cpp
+    src/music/itwriter.cpp)
 target_include_directories(tetrispack_music PUBLIC src)
 target_link_libraries(tetrispack_music PUBLIC ymfm_opl tinysoundfont lua_static)
 tetrispack_warnings(tetrispack_music)
@@ -176,6 +177,24 @@ if(TETRISPACK_FETCH_SOUNDFONT AND EXISTS ${gugs_dir}/GeneralUser-GS.sf2)
     install(FILES ${gugs_dir}/GeneralUser-GS.sf2 ${gugs_dir}/LICENSE.txt DESTINATION soundfont COMPONENT game)
 endif()
 
+# ---- The Xbox 360 host, headless ---------------------------------------------
+# consoles/xbox360 runs the Lua game on a C++03 host for the XDK's Visual
+# C++ 2010; everything but its Direct3D / XInput / XAudio2 layer also builds
+# here, held to C++98/03 on GCC and Clang, and runs in the tests. Here it
+# links the project's Lua (C); the console compiles Lua as C++ instead
+# (lua_all.cpp, in its .vcxproj only).
+add_executable(tetrispack360_headless
+    consoles/xbox360/src/canvas.cpp
+    consoles/xbox360/src/formats360.cpp
+    consoles/xbox360/src/game.cpp
+    consoles/xbox360/src/platform_headless.cpp)
+target_include_directories(tetrispack360_headless PRIVATE src)
+target_link_libraries(tetrispack360_headless PRIVATE lua_static)
+if(NOT MSVC)
+    set_target_properties(tetrispack360_headless PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+endif()
+tetrispack_warnings(tetrispack360_headless)
+
 # ---- Tests -------------------------------------------------------------------
 # No game data is in the repository, so CI runs only the data-free tests.
 # Configure with TETRISPACK_DATA=<folder with TETRIS.EXE> in the environment
@@ -209,6 +228,13 @@ if(TETRISPACK_TESTS)
     add_test(NAME lua COMMAND tetrispack ${lua_test_args})
     set_tests_properties(lua PROPERTIES ENVIRONMENT
         "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;TETRISPACK_SCRIPTS=${CMAKE_SOURCE_DIR}/scripts")
+
+    # The Xbox 360 host plays: past the About box, a game at level 5, a turn
+    # and a drop (no game data here, so the plain background).
+    add_test(NAME xbox360_host COMMAND tetrispack360_headless --frames 600
+             --keys "30:pad a,40:5,50:f2,200:pad dpup,300:pad dpdown,420:pad dpdown"
+             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    set_tests_properties(xbox360_host PROPERTIES PASS_REGULAR_EXPRESSION "sfx place: [1-9]")
 
     # The shipped game must at least boot (and play its attract mode) without data.
     add_test(NAME boot COMMAND tetrispack --data ${CMAKE_BINARY_DIR}/no-such-folder --frames 120)
