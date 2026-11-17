@@ -128,6 +128,7 @@ add_library(tetrispack_music STATIC
     src/music/engine_genesis.cpp
     src/music/engine_snes.cpp
     src/music/engine_midi.cpp
+    src/music/sfx.cpp
     src/music/song_lua.cpp)
 target_include_directories(tetrispack_music PUBLIC src)
 target_link_libraries(tetrispack_music PUBLIC ymfm_opl tinysoundfont lua_static)

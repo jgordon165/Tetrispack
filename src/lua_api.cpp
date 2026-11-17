@@ -195,6 +195,13 @@ int l_base_path(lua_State* L) {
     return 1;
 }
 
+// tp.sfx(name [, gain]): a sound effect ("rotate", "place", "clear", "clear_big")
+int l_sfx(lua_State* L) {
+    eng(L)->audio.playSfx(luaL_checkstring(L, 1), float(luaL_optnumber(L, 2, 1.0)));
+    return 0;
+}
+int l_sfx_volume(lua_State* L) { eng(L)->audio.setSfxVolume(float(luaL_checknumber(L, 1))); return 0; }
+
 int l_has_audio(lua_State* L) { lua_pushboolean(L, eng(L)->audio.isOpen()); return 1; }
 
 }  // namespace
@@ -208,7 +215,7 @@ void registerLuaApi(lua_State* L, Engine* e) {
         {"key_down", l_key_down}, {"ticks", l_ticks}, {"title", l_title},
         {"quit", l_quit}, {"log", l_log},
         {"music_play", l_music_play}, {"music_stop", l_music_stop}, {"music_pause", l_music_pause},
-        {"music_volume", l_music_volume}, {"music_soundfont", l_music_soundfont},
+        {"music_volume", l_music_volume}, {"sfx", l_sfx}, {"sfx_volume", l_sfx_volume}, {"music_soundfont", l_music_soundfont},
         {"platform", l_platform}, {"base_path", l_base_path}, {"music_position", l_music_position}, {"has_audio", l_has_audio},
         {nullptr, nullptr},
     };

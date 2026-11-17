@@ -23,11 +23,23 @@ local startRows = 0         -- Skill > Starting Rows
 local preview = false       -- Options > Piece Preview (off in the original until chosen)
 local blink = nil           -- { pass = n, t = seconds } while rows clear
 local popups = {}           -- open popups, the last one on top (ui/panel.lua)
+local sfxVolume = 7         -- Options > Sound Effects, 0-10
+local heardPlaced = 0       -- board.placed when we last played "place"
 local resumeAfterMenu = false
 
 local function newBoard()
   board = Board.new({ level = startLevel, rows = startRows })
   blink = nil
+  heardPlaced = 0
+end
+
+-- A landing sound for every piece that has landed since we last looked
+-- (dropped by the player or by gravity).
+local function landed()
+  if board.placed > heardPlaced then
+    heardPlaced = board.placed
+    tp.sfx("place")
+  end
 end
 
 local function start()
@@ -109,6 +121,9 @@ local function settingsPanel()
     { label = "Music Style", values = jukebox.styleNames,
       get = function() return jukebox.style end,
       set = function(v) jukebox.style = v end },
+    { label = "Sound Effects", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+      get = function() return sfxVolume end,
+      set = function(v) sfxVolume = v; tp.sfx_volume(v / 10); tp.sfx("rotate") end },
     { label = "Music Volume", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
       get = function() return jukebox.volume end,
       set = function(v) jukebox.volume = v end },
@@ -173,6 +188,7 @@ do
     tp.log("no data: " .. err)
   end
   tp.title("Tetris for Windows")
+  tp.sfx_volume(sfxVolume / 10)
   newBoard()
 end
 
@@ -210,11 +226,13 @@ function game.keypressed(key, rep)
   if state ~= "play" or board:busy() then return end
   if a == "left" then board:left()
   elseif a == "right" then board:right()
-  elseif a == "rotate" then board:rotate(1)
+  elseif a == "rotate" then
+    if board:rotate(1) then tp.sfx("rotate") end
   elseif a == "drop" then board:drop()
   elseif a == "slide_left" then board:slide(-1)
   elseif a == "slide_right" then board:slide(1)
   end
+  landed()
 end
 
 function game.update(dt)
@@ -224,7 +242,11 @@ function game.update(dt)
   jukebox.update(board.level, state ~= "over")
   jukebox.pause(state == "pause" and #popups == 0)
   if state ~= "play" or #popups > 0 then return end
-  if board.clearing and not blink then blink = { pass = BLINK_PASSES, t = 0 } end
+  if board.clearing and not blink then
+    blink = { pass = BLINK_PASSES, t = 0 }
+    -- A chime as the rows start to blink; a bigger one for three or more.
+    tp.sfx(#board.clearing >= 3 and "clear_big" or "clear")
+  end
   if blink then
     blink.t = blink.t + dt
     while blink and blink.t >= BLINK_STEP do
@@ -238,6 +260,7 @@ function game.update(dt)
   else
     board:update(dt)
   end
+  landed()
   if board.over then
     state = "over"
     message("Tetris", { "Game Over!" })
