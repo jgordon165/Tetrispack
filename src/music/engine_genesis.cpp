@@ -2,6 +2,7 @@
 // PSG (three square waves and a noise channel, software envelopes as the
 // games' sound drivers did), mixed as the console does.
 #include "music/backend.h"
+#include "music/vgm.h"
 
 #include "ymfm_opn.h"
 
@@ -12,6 +13,8 @@ namespace music {
 
 namespace {
 
+VgmWriter* g_vgm = nullptr;
+
 constexpr uint32_t kClock = 7670453;            // NTSC Mega Drive YM2612 clock
 constexpr uint8_t kSlot[4] = {0, 8, 4, 12};     // operators 1-4 -> register offsets
 // Which operators are heard (carriers) for each algorithm.
@@ -20,17 +23,22 @@ constexpr uint8_t kCarriers[8] = {0x8, 0x8, 0x8, 0x8, 0xA, 0xE, 0xE, 0xF};
 constexpr float kFmGain = 2.1f;                  // ymfm's 9-bit DAC levels -> our scale
 constexpr float kPsgGain = 1550.0f;              // one PSG channel at full volume
 
-// The PSG's 2 dB volume steps.
+// The PSG's 2 dB volume steps: 0 loudest, 15 off.
+int psgStep(float v) {
+    if (v <= 0.0001f) return 15;
+    return std::clamp(int(std::lround(-20.0 * std::log10(v) / 2.0)), 0, 15);
+}
 float psgLevel(float v) {
-    if (v <= 0.0001f) return 0;
-    const int step = std::clamp(int(std::lround(-20.0 * std::log10(v) / 2.0)), 0, 15);
+    const int step = psgStep(v);
     return step == 15 ? 0.0f : float(std::pow(10.0, -2.0 * step / 20.0));
 }
 
 class Genesis : public Backend, ymfm::ymfm_interface {
 public:
-    Genesis() {
+    Genesis() : vgm_(g_vgm) {
         opn_.reset();
+        if (vgm_)
+            for (uint8_t ch = 0; ch < 4; ++ch) vgm_->psg(uint8_t(0x9F | (ch << 5)), 0);   // PSG silent
         write(0, 0x22, 0x08 | 3);   // LFO on (about 6 Hz) for vibrato patches
         write(0, 0x27, 0x00);
         write(0, 0x2B, 0x00);       // DAC off: six FM channels
@@ -66,6 +74,12 @@ public:
     }
 
     void frame(float& l, float& r) override {
+        if (vgm_) {
+            // The PSG as register writes, 60 times a second.
+            const uint64_t tick = uint64_t(double(frames_) * 60.0 / rate());
+            if (frames_ == 0 || tick != lastTick_) { lastTick_ = tick; psgToVgm(); }
+        }
+        ++frames_;
         ymfm::ym2612::output_data o;
         opn_.generate(&o, 1);
         l = float(o.data[0]) * kFmGain;
@@ -75,6 +89,7 @@ public:
         for (int i = 0; i < 4; ++i) {
             PsgVoice& v = psg_[i];
             const float e = v.env.step(v.envelope, dt);
+            v.level = v.env.stage == EnvState::Off ? 0.0f : e;
             if (v.env.stage == EnvState::Off) continue;
             v.t += dt;
             float s;
@@ -100,9 +115,47 @@ public:
     }
 
 private:
+    uint64_t at44() const { return uint64_t(double(frames_) * 44100.0 / rate() + 0.5); }
+
     void write(int port, uint8_t reg, uint8_t val) {
         opn_.write(port ? 2 : 0, reg);
         opn_.write(port ? 3 : 1, val);
+        if (vgm_) vgm_->ym2612(port, reg, val, at44());
+    }
+
+    // The software PSG's current state as SN76489 writes (only what changed).
+    void psgToVgm() {
+        const uint64_t at = at44();
+        for (int i = 0; i < 4; ++i) {
+            const PsgVoice& v = psg_[i];
+            const bool on = v.env.stage != EnvState::Off;
+            const int atten = on ? psgStep(v.level * v.vel) : 15;
+            if (i < 3 && on) {
+                const float hz = v.hz * (v.vibrato > 0 ? std::pow(2.0f, v.vibrato * std::sin(6.2832f * 5.5f * v.t) / 12.0f) : 1.0f);
+                const int n = std::clamp(int(std::lround(VgmWriter::kPsgClock / (32.0 * std::max(hz, 1.0f)))), 1, 1023);
+                if (n != psgTone_[i]) {
+                    psgTone_[i] = n;
+                    vgm_->psg(uint8_t(0x80 | (i << 5) | (n & 0xF)), at);
+                    vgm_->psg(uint8_t((n >> 4) & 0x3F), at);
+                }
+            }
+            if (i == 3 && on) {
+                // White noise at the nearest of the chip's three fixed rates.
+                const double rates[3] = {VgmWriter::kPsgClock / 256.0, VgmWriter::kPsgClock / 512.0, VgmWriter::kPsgClock / 1024.0};
+                int mode = 0;
+                for (int m = 1; m < 3; ++m)
+                    if (std::abs(std::log(rates[m] / v.hz)) < std::abs(std::log(rates[mode] / v.hz))) mode = m;
+                if (mode != psgNoise_ || v.since != psgNoiseSince_) {
+                    psgNoise_ = mode;
+                    psgNoiseSince_ = v.since;
+                    vgm_->psg(uint8_t(0xE4 | mode), at);   // also restarts the noise, as a new hit should
+                }
+            }
+            if (atten != psgVol_[i]) {
+                psgVol_[i] = atten;
+                vgm_->psg(uint8_t(0x90 | (i << 5) | atten), at);
+            }
+        }
     }
 
     void fmOn(int id, int key, float vel, const Instrument& inst) {
@@ -180,15 +233,22 @@ private:
         uint64_t since = 0;
         Envelope envelope;
         EnvState env;
-        float vel = 0, hz = 0, phase = 0, t = 0, vibrato = 0, gl = 1, gr = 1;
+        float vel = 0, hz = 0, phase = 0, t = 0, vibrato = 0, gl = 1, gr = 1, level = 0;
     };
     FmVoice fm_[6];
     PsgVoice psg_[4];
     unsigned lfsr_ = 0x8000;
     uint64_t clock_ = 0;
+    // VGM logging (tools only).
+    VgmWriter* vgm_ = nullptr;
+    uint64_t frames_ = 0, lastTick_ = 0;
+    int psgTone_[3] = {-1, -1, -1}, psgVol_[4] = {15, 15, 15, 15}, psgNoise_ = -1;
+    uint64_t psgNoiseSince_ = 0;
 };
 
 }  // namespace
+
+void setGenesisVgm(VgmWriter* vgm) { g_vgm = vgm; }
 
 std::unique_ptr<Backend> makeGenesis() { return std::make_unique<Genesis>(); }
 

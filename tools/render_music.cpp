@@ -5,10 +5,17 @@
 // (midi, snes, genesis, opl3; default all), each one pass of the song unless
 // `seconds` is given. Windows MIDI needs soundfont/GeneralUser-GS.sf2 next to
 // this tool (the build puts it there).
+//
+// Style "genesis-vgm" instead writes the Genesis style as VGM chip logs
+// (<n>.vgm, one looping pass of each song) for the Genesis build's XGM2
+// music; see consoles/genesis. "sfx-wav [rate]" writes the sound effects
+// as mono .wav files (default 13300 Hz, the Genesis XGM2 PCM rate).
 
 #include "music/player.h"
 #include "music/song_lua.h"
 #include "music/soundfont.h"
+#include "music/sfx.h"
+#include "music/vgm.h"
 
 extern "C" {
 #include "lauxlib.h"
@@ -16,7 +23,9 @@ extern "C" {
 #include "lualib.h"
 }
 
+#include <algorithm>
 #include <cstdio>
+#include <iterator>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -36,13 +45,44 @@ static void writeWav(const std::string& path, const std::vector<int16_t>& pcm, i
     std::fclose(f);
 }
 
+// Each sound effect on its own, mono.
+static int writeSfx(const std::string& out, int rate) {
+    for (const char* name : {"rotate", "place", "clear", "clear_big"}) {
+        music::Sfx sfx;
+        sfx.prepare(rate);
+        sfx.setVolume(1.0f);
+        sfx.play(name);
+        std::vector<int16_t> mono;
+        int16_t buf[2 * 256];
+        while (sfx.busy()) {
+            std::fill(std::begin(buf), std::end(buf), int16_t(0));
+            sfx.render(buf, 256);
+            for (int k = 0; k < 256; ++k) mono.push_back(buf[2 * k]);
+        }
+        const std::string path = out + "/" + name + ".wav";
+        FILE* f = std::fopen(path.c_str(), "wb");
+        if (!f) { std::perror(path.c_str()); return 1; }
+        auto u32 = [&](uint32_t v) { std::fwrite(&v, 4, 1, f); };
+        auto u16 = [&](uint16_t v) { std::fwrite(&v, 2, 1, f); };
+        const uint32_t bytes = uint32_t(mono.size() * 2);
+        std::fwrite("RIFF", 1, 4, f); u32(36 + bytes); std::fwrite("WAVEfmt ", 1, 8, f);
+        u32(16); u16(1); u16(1); u32(uint32_t(rate)); u32(uint32_t(rate) * 2); u16(2); u16(16);
+        std::fwrite("data", 1, 4, f); u32(bytes);
+        std::fwrite(mono.data(), 2, mono.size(), f);
+        std::fclose(f);
+        std::printf("%s: %.2f s\n", path.c_str(), double(mono.size()) / rate);
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: %s <scripts dir> <out dir> [seconds]\n", argv[0]);
+        std::fprintf(stderr, "usage: %s <scripts dir> <out dir> [style | genesis-vgm | sfx-wav] [seconds | rate]\n", argv[0]);
         return 2;
     }
     const std::string scripts = argv[1], out = argv[2];
     const std::string only = argc > 3 ? argv[3] : "";
+    if (only == "sfx-wav") return writeSfx(out, argc > 4 ? std::atoi(argv[4]) : 13300);
     const double seconds = argc > 4 ? std::atof(argv[4]) : 0;
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
@@ -84,10 +124,28 @@ int main(int argc, char** argv) {
         lua_getfield(L, -1, "style");
         const std::string style = lua_tostring(L, -1);
         lua_pop(L, 1);
-        if (!only.empty() && only != style) { lua_pop(L, 1); continue; }
+        const bool vgmOut = only == "genesis-vgm";
+        if (!only.empty() && only != style && !(vgmOut && style == "genesis")) { lua_pop(L, 1); continue; }
         lua_getfield(L, -1, "song");
         auto song = music::songFromLua(L, -1);
         lua_pop(L, 2);
+
+        if (vgmOut) {
+            music::VgmWriter vgm;
+            music::setGenesisVgm(&vgm);
+            music::Player synth;
+            synth.setVolume(1.0f);
+            synth.play(song, 0);
+            vgm.loopHere(0);
+            const double len = song->length;
+            std::vector<int16_t> pcm(size_t(len * rate) * 2, 0);
+            synth.render(pcm.data(), int(pcm.size() / 2), rate);
+            music::setGenesisVgm(nullptr);
+            const std::string path = out + "/song" + name.substr(0, name.find('_')) + ".vgm";
+            if (!vgm.save(path, uint64_t(len * 44100.0 + 0.5))) { std::perror(path.c_str()); return 1; }
+            std::printf("%s: %s, %.1f s, %zu chip writes\n", path.c_str(), name.c_str(), len, vgm.commands());
+            continue;
+        }
 
         music::Player synth;
         synth.setVolume(1.0f);

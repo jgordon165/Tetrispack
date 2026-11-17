@@ -130,7 +130,8 @@ add_library(tetrispack_music STATIC
     src/music/engine_snes.cpp
     src/music/engine_midi.cpp
     src/music/sfx.cpp
-    src/music/song_lua.cpp)
+    src/music/song_lua.cpp
+    src/music/vgm.cpp)
 target_include_directories(tetrispack_music PUBLIC src)
 target_link_libraries(tetrispack_music PUBLIC ymfm_opl tinysoundfont lua_static)
 tetrispack_warnings(tetrispack_music)
@@ -190,6 +191,12 @@ if(TETRISPACK_TESTS)
     target_link_libraries(tetrispack_music_tests PRIVATE tetrispack_music)
     tetrispack_warnings(tetrispack_music_tests)
     add_test(NAME music COMMAND tetrispack_music_tests)
+    # The console builds' C rules (consoles/), on the host.
+    add_executable(tetrispack_console_core_tests tests/test_console_core.c consoles/common/tetris_core.c)
+    target_include_directories(tetrispack_console_core_tests PRIVATE consoles/common)
+    tetrispack_warnings(tetrispack_console_core_tests)
+    add_test(NAME console_core COMMAND tetrispack_console_core_tests)
+
     if(DEFINED ENV{TETRISPACK_DATA})
         set_tests_properties(formats PROPERTIES ENVIRONMENT "TETRISPACK_DATA=$ENV{TETRISPACK_DATA}")
     endif()

@@ -12,3 +12,6 @@ jobs:
   mac-osx:
     uses: ./.github/workflows/release-mac-osx.yml
     secrets: inherit
+
+  genesis:
+    uses: ./.github/workflows/release-genesis.yml

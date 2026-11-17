@@ -4,10 +4,13 @@
 #include "music/player.h"
 #include "music/sfx.h"
 #include "music/soundfont.h"
+#include "music/vgm.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <memory>
 #include <vector>
@@ -125,6 +128,44 @@ int main(int, char** argv) {
         const int hz = measuredHz(oneNote(Engine::Genesis, sq, 69));
         std::printf("psg: A4 %d Hz\n", hz);
         CHECK(std::abs(hz - 440) <= 3);
+    }
+
+    {   // VGM logging for the Genesis build: an FM note and a PSG A4.
+        auto song = std::make_shared<Song>();
+        song->engine = Engine::Genesis;
+        song->instruments.push_back(tone(Engine::Genesis));
+        Instrument sq;
+        sq.kind = Kind::PsgTone;
+        sq.env = {0.001f, 0.1f, 1.0f, 0.05f};
+        song->instruments.push_back(sq);
+        song->notes.push_back({0.0, 0.5, 60, 1.0f, 0});
+        song->notes.push_back({0.1, 0.5, 69, 1.0f, 1});
+        song->length = 1.0;
+        VgmWriter vgm;
+        setGenesisVgm(&vgm);
+        Player p;
+        p.setVolume(1);
+        p.play(song, 0);
+        vgm.loopHere(0);
+        render(p, 1.0, 44100);
+        setGenesisVgm(nullptr);
+        const std::string path = std::string(argv[0]) + ".test.vgm";
+        CHECK(vgm.save(path, 44100));
+        std::ifstream f(path, std::ios::binary);
+        const std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        std::remove(path.c_str());
+        auto u32at = [&](size_t o) { return uint32_t(d[o] | d[o + 1] << 8 | d[o + 2] << 16 | uint32_t(d[o + 3]) << 24); };
+        auto has = [&](std::initializer_list<uint8_t> seq) {
+            return std::search(d.begin(), d.end(), seq.begin(), seq.end()) != d.end();
+        };
+        CHECK(d.size() > 0x40 && d[0] == 'V' && d[1] == 'g' && d[2] == 'm');
+        CHECK(u32at(0x04) == d.size() - 4 && u32at(0x08) == 0x150);
+        CHECK(u32at(0x2C) == VgmWriter::kYm2612Clock && u32at(0x0C) == VgmWriter::kPsgClock);
+        CHECK(u32at(0x18) == 44100);                      // total samples
+        CHECK(has({0x52, 0x28, 0xF0}));                   // FM key-on, channel 1
+        CHECK(has({0x50, 0x8E, 0x50, 0x0F}));             // PSG tone 0: period 254 (A4)
+        CHECK(d.back() == 0x66);
+        std::printf("vgm: %zu bytes, %zu chip writes\n", d.size(), vgm.commands());
     }
 
     // Looping, volume, pause, switching and stopping (on each engine).

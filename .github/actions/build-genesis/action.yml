@@ -1,0 +1,49 @@
+name: build-genesis
+description: build the Sega Genesis / Mega Drive ROM with SGDK and smoke-test it in MAME
+
+inputs:
+  smoke_test:
+    description: boot the ROM in MAME and check the attract demo clears lines
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    # The PC build's music tool renders the soundtrack to VGM and the sound
+    # effects to WAV for the ROM; only it is built here.
+    - name: Configure host tools
+      uses: ./.github/actions/configure-linux
+
+    - name: Build the music tool
+      run: cmake --build build --parallel --target tetrispack_render_music
+      shell: bash
+
+    - name: Install the m68k cross compiler
+      run: sudo apt-get install -y gcc-m68k-linux-gnu binutils-m68k-linux-gnu
+      shell: bash
+
+    - name: Cache SGDK
+      uses: actions/cache@v5
+      with:
+        path: .sgdk
+        key: ${{runner.os}}-sgdk-${{hashFiles('consoles/genesis/setup-sgdk.sh')}}
+
+    - name: Set up SGDK
+      run: |
+        consoles/genesis/setup-sgdk.sh .sgdk > /dev/null
+        echo "GDK=$PWD/.sgdk/SGDK" >> "$GITHUB_ENV"
+        echo "$PWD/.sgdk/bin" >> "$GITHUB_PATH"
+      shell: bash
+
+    - name: Build the ROM
+      run: consoles/genesis/build.sh build-genesis
+      shell: bash
+
+    - name: Smoke test in MAME
+      if: inputs.smoke_test == 'true'
+      run: |
+        sudo apt-get install -y mame
+        board=$(awk '$3=="board"{print substr($1,3)}' build-genesis/out/symbol.txt)
+        MAME=/usr/games/mame consoles/tests/mame_smoke.sh genesis build-genesis/tetrispack-genesis.bin build-genesis/smoke "$board" 210,205,212 big
+      shell: bash
