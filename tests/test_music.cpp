@@ -2,6 +2,7 @@
 // in tune, loops wrap, fades and stops end in silence, pause holds still.
 
 #include "music/player.h"
+#include "music/sfx.h"
 #include "music/soundfont.h"
 
 #include <algorithm>
@@ -164,6 +165,27 @@ int main(int, char** argv) {
         CHECK(!p.playing());
         rms(p, 1.5);                         // release tails and echo die away
         CHECK(rms(p, 0.2) < 1);
+    }
+
+    {   // Sound effects: they sound, mix over what's there, and end.
+        Sfx fx;
+        fx.prepare(48000);
+        CHECK(!fx.play("nope"));
+        for (const char* name : {"rotate", "place"}) {
+            CHECK(fx.play(name));
+            std::vector<int16_t> buf(48000 / 4 * 2, 0);
+            fx.render(buf.data(), int(buf.size() / 2));
+            int peak = 0;
+            for (int16_t v : buf) peak = std::max(peak, std::abs(int(v)));
+            std::printf("sfx %s: peak %d\n", name, peak);
+            CHECK(peak > 2000 && peak < 32767);
+            CHECK(!fx.busy());                     // short: done within a quarter second
+        }
+        fx.play("place");
+        fx.setVolume(0);
+        std::vector<int16_t> buf(4800 * 2, 100);
+        fx.render(buf.data(), 4800);
+        CHECK(buf[0] == 100 && buf[5000] == 100);   // volume 0: leaves the mix alone
     }
 
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }

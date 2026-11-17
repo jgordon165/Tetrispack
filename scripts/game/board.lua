@@ -22,6 +22,7 @@ function Board.new(opts)
   b.rng = opts.rng or math.random
   b.level = opts.level or 1
   b.score, b.lines = 0, 0
+  b.placed = 0       -- pieces landed so far (the game plays a sound on each)
   b.over = false
   b.fall = 0
   b.clearing = nil   -- rows waiting to be removed (the blink plays meanwhile)
@@ -132,6 +133,7 @@ function Board:lock()
     if y < 0 then self.over = true; return 0 end
     self.grid[y][self.piece.x + c.x] = self.piece.name
   end
+  self.placed = self.placed + 1
   self.score = self.score + Board.piece_points * self.level
   local rows = self:full_rows()
   if #rows > 0 then
