@@ -42,6 +42,65 @@ elseif(APPLE)
     target_compile_definitions(lua_static PRIVATE LUA_USE_MACOSX)
 endif()
 
+# ---- ymfm (Yamaha FM chip emulators, BSD-3; we use its OPL3 and YM2612) -----
+# Pinned to a commit: the project has no release tags. SOURCE_SUBDIR points
+# at a folder with no CMakeLists.txt, so only the sources are fetched (ymfm's
+# own CMake would build every chip it has).
+FetchContent_Declare(ymfm
+    GIT_REPOSITORY https://github.com/aaronsgiles/ymfm.git
+    GIT_TAG        81aec25ccbb98f4873a255f7551ac4dadac59b4a
+    SOURCE_SUBDIR  sources-only)
+FetchContent_MakeAvailable(ymfm)
+add_library(ymfm_opl STATIC
+    ${ymfm_SOURCE_DIR}/src/ymfm_opl.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_opn.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_ssg.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_adpcm.cpp
+    ${ymfm_SOURCE_DIR}/src/ymfm_pcm.cpp)
+target_include_directories(ymfm_opl SYSTEM PUBLIC ${ymfm_SOURCE_DIR}/src)
+target_compile_options(ymfm_opl PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>)   # third-party code
+
+# ---- TinySoundFont (SoundFont synth, MIT; header-only) -----------------------
+# The Windows MIDI music style. Pinned to a commit (no release tags).
+FetchContent_Declare(tinysoundfont
+    GIT_REPOSITORY https://github.com/schellingb/TinySoundFont.git
+    GIT_TAG        853a0a171759f1ddba0de1442133a75912bbeffa)
+FetchContent_GetProperties(tinysoundfont)
+if(NOT tinysoundfont_POPULATED)
+    FetchContent_Populate(tinysoundfont)
+endif()
+add_library(tinysoundfont STATIC src/music/tsf_impl.cpp)
+target_include_directories(tinysoundfont SYSTEM PUBLIC ${tinysoundfont_SOURCE_DIR})
+target_compile_options(tinysoundfont PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/W0,-w>)   # third-party code
+
+# ---- GeneralUser GS (the bundled SoundFont) ---------------------------------
+# S. Christian Collins' GS / General MIDI bank (free to use and redistribute,
+# see its LICENSE.txt), copied next to the game as soundfont/. Pinned to a
+# commit and checked by hash, as in Meguarace. Off: the Windows MIDI style
+# needs a .sf2 put in soundfont/ by hand.
+option(TETRISPACK_FETCH_SOUNDFONT "Download the GeneralUser GS SoundFont next to the game" ON)
+if(TETRISPACK_FETCH_SOUNDFONT)
+    set(gugs_commit 684543d5e5efaef08d02be50dcda8d552478fa60)
+    set(gugs_dir ${CMAKE_BINARY_DIR}/_soundfont)
+    if(NOT EXISTS ${gugs_dir}/GeneralUser-GS.sf2)
+        message(STATUS "Downloading the GeneralUser GS SoundFont (32 MB)")
+        file(DOWNLOAD https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/${gugs_commit}/GeneralUser-GS.sf2
+             ${gugs_dir}/GeneralUser-GS.sf2.part
+             EXPECTED_HASH SHA256=9575028c7a1f589f5770fccc8cff2734566af40cd26ed836944e9a5152688cfe
+             STATUS gugs_status)
+        list(GET gugs_status 0 gugs_code)
+        if(gugs_code EQUAL 0)
+            file(RENAME ${gugs_dir}/GeneralUser-GS.sf2.part ${gugs_dir}/GeneralUser-GS.sf2)
+        else()
+            message(WARNING "GeneralUser GS download failed (${gugs_status}); the Windows MIDI style needs a .sf2 added by hand")
+        endif()
+    endif()
+    if(NOT EXISTS ${gugs_dir}/LICENSE.txt)
+        file(DOWNLOAD https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/${gugs_commit}/documentation/LICENSE.txt
+             ${gugs_dir}/LICENSE.txt STATUS gugs_status)
+    endif()
+endif()
+
 # ---- Warnings ----------------------------------------------------------------
 function(tetrispack_warnings target)
     if(MSVC)
@@ -61,13 +120,32 @@ add_library(tetrispack_formats STATIC
 target_include_directories(tetrispack_formats PUBLIC src)
 tetrispack_warnings(tetrispack_formats)
 
+# ---- Music (no SDL; shared by the engine and the tests) ---------------------
+add_library(tetrispack_music STATIC
+    src/music/player.cpp
+    src/music/backend.cpp
+    src/music/engine_opl3.cpp
+    src/music/engine_genesis.cpp
+    src/music/engine_snes.cpp
+    src/music/engine_midi.cpp
+    src/music/song_lua.cpp)
+target_include_directories(tetrispack_music PUBLIC src)
+target_link_libraries(tetrispack_music PUBLIC ymfm_opl tinysoundfont lua_static)
+tetrispack_warnings(tetrispack_music)
+
+# Renders the songs to .wav, to listen to them outside the game.
+add_executable(tetrispack_render_music tools/render_music.cpp)
+target_link_libraries(tetrispack_render_music PRIVATE tetrispack_music)
+tetrispack_warnings(tetrispack_render_music)
+
 # ---- Engine ----------------------------------------------------------------
 add_executable(tetrispack
     src/main.cpp
     src/video.cpp
     src/input.cpp
+    src/audio.cpp
     src/lua_api.cpp)
-target_link_libraries(tetrispack PRIVATE tetrispack_formats SDL2::SDL2-static SDL2::SDL2main lua_static)
+target_link_libraries(tetrispack PRIVATE tetrispack_formats tetrispack_music SDL2::SDL2-static SDL2::SDL2main lua_static)
 tetrispack_warnings(tetrispack)
 if(MSVC)
     # Debugging symbols for Release too (uploaded separately by the release workflow).
@@ -83,6 +161,17 @@ add_custom_target(copy_scripts ALL
     COMMENT "Copying Lua scripts")
 add_dependencies(copy_scripts tetrispack)
 
+# The bundled SoundFont next to the binary, as the package has it.
+if(TETRISPACK_FETCH_SOUNDFONT AND EXISTS ${gugs_dir}/GeneralUser-GS.sf2)
+    add_custom_target(copy_soundfont ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:tetrispack>/soundfont
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${gugs_dir}/GeneralUser-GS.sf2 ${gugs_dir}/LICENSE.txt
+                $<TARGET_FILE_DIR:tetrispack>/soundfont
+        COMMENT "GeneralUser GS next to the game")
+    add_dependencies(copy_soundfont tetrispack)
+    install(FILES ${gugs_dir}/GeneralUser-GS.sf2 ${gugs_dir}/LICENSE.txt DESTINATION soundfont COMPONENT game)
+endif()
+
 # ---- Tests -------------------------------------------------------------------
 # No game data is in the repository, so CI runs only the data-free tests.
 # Configure with TETRISPACK_DATA=<folder with TETRIS.EXE> in the environment
@@ -94,6 +183,11 @@ if(TETRISPACK_TESTS)
     target_link_libraries(tetrispack_tests PRIVATE tetrispack_formats)
     tetrispack_warnings(tetrispack_tests)
     add_test(NAME formats COMMAND tetrispack_tests)
+
+    add_executable(tetrispack_music_tests tests/test_music.cpp)
+    target_link_libraries(tetrispack_music_tests PRIVATE tetrispack_music)
+    tetrispack_warnings(tetrispack_music_tests)
+    add_test(NAME music COMMAND tetrispack_music_tests)
     if(DEFINED ENV{TETRISPACK_DATA})
         set_tests_properties(formats PROPERTIES ENVIRONMENT "TETRISPACK_DATA=$ENV{TETRISPACK_DATA}")
     endif()

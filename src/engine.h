@@ -1,6 +1,7 @@
 // State shared by the C++ host and the Lua API.
 #pragma once
 
+#include "audio.h"
 #include "formats/ne.h"
 #include "video.h"
 
@@ -9,6 +10,7 @@
 
 struct Engine {
     Video video;
+    Audio audio;
     std::string dataArg;          // --data: folder holding TETRIS.EXE, or the file itself
     std::string exePath;          // the TETRIS.EXE found, if any
     std::optional<tp::NeFile> exe;

@@ -125,6 +125,126 @@ do
   check(b.lines > 0, "autoplay clears lines (" .. b.lines .. ")")
 end
 
+
+-- The popup panel: scrolling list, values, actions, back.
+do
+  local Panel = require("ui.panel")
+  local input = require("ui.input")
+  check(input.action("game", "escape") == "menu" and input.action("game", "f12") == "menu"
+        and input.action("game", "pad start") == "menu" and input.action("game", "mouse right") == "menu",
+        "Esc, F12, Start and right click open the menu")
+  local log, level = {}, 1
+  local rows = { { header = "GAME" }, { label = "New", action = function() log[#log + 1] = "new" end },
+                 { label = "Off", action = function() end, enabled = false },
+                 { header = "SKILL" },
+                 { label = "Level", values = { 1, 2, 3 }, get = function() return level end,
+                   set = function(v) level = v end } }
+  for k = 1, 10 do rows[#rows + 1] = { label = "Item " .. k, action = function() log[#log + 1] = k end } end
+  local p = Panel.new({ rows = rows, visible = 6 })
+  check(p:current() == "New", "starts on the first choice, past the header")
+  p:key("down"); check(p:current() == "Level", "skips headers and disabled rows")
+  p:key("right"); check(level == 2, "right raises a value")
+  p:key("left"); p:key("left"); check(level == 3, "left wraps round")
+  p:key("accept"); check(level == 1, "accept steps a value")
+  for _ = 1, 10 do p:key("down") end
+  check(p:current() == "Item 10" and p.top == #rows - 5, "scrolls to keep the choice in view")
+  p:key("down"); check(p:current() == "New" and p.top == 1, "wraps to the top")
+  p:key("up"); check(p:current() == "Item 10", "wraps to the bottom")
+  p:key("accept"); check(log[1] == 10, "accept runs the action")
+  check(p:key("back") == "close" and p:key("menu") == "close", "back and menu close it")
+end
+
+-- Starting rows: partly filled, never full.
+do
+  math.randomseed(3)
+  local b = Board.new({ rows = 5 })
+  local ok = true
+  for y = 15, 19 do
+    local n = 0
+    for x = 0, 9 do if b.grid[y][x] then n = n + 1 end end
+    if n == 0 or n == 10 then ok = false end
+  end
+  for y = 0, 14 do if next(b.grid[y]) then ok = false end end
+  check(ok, "starting rows fill the bottom 5 rows, with gaps")
+end
+
+
+-- Music: the MML parser, the songs, the level -> song choice.
+do
+  local mml = require("music.mml")
+  local notes, beats = mml.parse("o4 l8 c d4 e4. | r8 (ceg)2 ^4 [c16]4 > c < c | b- c+")
+  check(beats == 0.5 + 1 + 1.5 + 0.5 + 3 + 4 * 0.25 + 0.5 + 0.5 + 0.5 + 0.5, "mml lengths (" .. beats .. ")")
+  check(notes[1][3] == 60 and notes[2][3] == 62 and notes[3][3] == 64, "mml pitches, o4 c = 60")
+  check(math.abs(notes[2][2] - 1 * 7 / 8) < 1e-9, "mml gate q7")
+  check(notes[4][1] == 3.5 and notes[5][1] == 3.5 and notes[6][1] == 3.5, "mml chord starts together")
+  check(math.abs(notes[4][2] - 3 * 7 / 8) < 1e-9, "mml tie lengthens the chord")
+  local repeats = 0
+  for _, n in ipairs(notes) do if n[1] >= 6.5 and n[1] < 7.5 then repeats = repeats + 1 end end
+  check(repeats == 4, "mml repeat")
+  check(notes[11][3] == 72 and notes[12][3] == 60, "mml octave up and down")
+  check(notes[13][3] == 70 and notes[14][3] == 61, "mml flat and sharp")
+  check(not pcall(mml.parse, "c4 x"), "mml rejects junk")
+
+  local jukebox = require("music.jukebox")
+  for _, song in ipairs(jukebox.songs) do
+    check(#song.chords == song.bars, song.name .. ": a chord per bar")
+    for _, t in ipairs(song.tracks) do
+      if t.mml then
+        local _, len = mml.parse(t.mml)
+        check(len == song.bars * 4, song.name .. ": " .. t.inst .. " track is " .. song.bars .. " bars (" .. len / 4 .. ")")
+      else
+        local last = 0
+        for _, n in ipairs(t.notes) do last = math.max(last, n[1] + n[2]) end
+        check(last <= song.bars * 4 + 1e-6, song.name .. ": " .. t.inst .. " notes inside the song")
+      end
+    end
+    for _, style in ipairs(jukebox.styles) do
+      local b = jukebox.build(song, style.id)
+      check(#b.notes > 100 and b.length > 15 and b.length < 60,
+            song.name .. " on " .. style.id .. " (" .. #b.notes .. " notes, " .. b.length .. " s)")
+    end
+  end
+  -- The Super NES restyles: faster, racing bass, stabs, open hats; the others don't.
+  local koro = jukebox.songs[1]
+  local pm = jukebox.songs[2]   -- in the general racing style
+  local function has(tracks, inst) for _, t in ipairs(tracks) do if t.inst == inst then return true end end return false end
+  local snes, md = jukebox.tracks(pm, "snes"), jukebox.tracks(pm, "genesis")
+  check(has(snes, "stabs") and has(snes, "open") and not has(snes, "bells"), "snes: stabs and open hats, no doublings")
+  check(not has(md, "stabs") and has(md, "bells"), "mega drive: the song's own arrangement")
+  check(jukebox.tempo(pm, "snes") > pm.tempo and jukebox.tempo(pm, "genesis") == pm.tempo, "snes plays faster")
+  local bassSnes
+  for _, t in ipairs(snes) do if t.inst == "bass" then bassSnes = t end end
+  check(#bassSnes.notes == pm.bars * 16, "snes bass in sixteenths")
+  -- Per-song Super NES styles: Korobeiniki house, Samovar platformer.
+  local function insts(tracks) local t = {} for _, x in ipairs(tracks) do t[x.inst] = x end return t end
+  local k = insts(jukebox.tracks(koro, "snes"))
+  check(k.m1piano and k.organ and k.clap and k.m1bass and not k.arp, "snes Korobeiniki: piano, organ stabs, claps, no arps")
+  check(jukebox.tempo(koro, "snes") == 124, "snes Korobeiniki at a house tempo")
+  local sam = jukebox.songs[3]
+  local s3 = insts(jukebox.tracks(sam, "snes"))
+  check(s3.flute and s3.marimba and s3.conga and s3.bongo and not s3.stabs, "snes Samovar: flute, marimba, hand drums")
+  local swung = false
+  for _, n in ipairs(s3.flute.notes) do
+    local f = n[1] - math.floor(n[1])
+    if math.abs(f - 0.64) < 1e-6 then swung = true end
+  end
+  check(swung, "snes Samovar swings its off-beats")
+  check(insts(jukebox.tracks(sam, "genesis")).accordion ~= nil, "other engines keep the accordion")
+  check(jukebox.soundfont ~= nil, "the GS SoundFont loads (Windows MIDI)")
+  local midi = jukebox.build(koro, "midi")
+  check(midi.soundfont == jukebox.soundfont and #midi.instruments > 5, "midi build names the SoundFont")
+  check(jukebox.songFor(1) == 1 and jukebox.songFor(2) == 1 and jukebox.songFor(5) == 3 and jukebox.songFor(10) == 5,
+        "a song per pair of levels")
+  jukebox.choice = "Samovar"; check(jukebox.songFor(1) == 3, "a chosen song")
+  jukebox.choice = "Off"; check(jukebox.songFor(1) == nil, "music off")
+  jukebox.choice = "By Level"
+  for _, name in ipairs(jukebox.styleNames) do
+    jukebox.style = name
+    jukebox.update(1)   -- plays through the dummy audio driver without error
+  end
+  jukebox.style = "Super NES"
+end
+
 -- Layout: the playfield is where the original's WM_SIZE puts it.
 check(layout.grid.cw == 22 and layout.grid.ch == 19, "cell size 22x19 at 640x440")
 

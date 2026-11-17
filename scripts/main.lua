@@ -6,6 +6,9 @@ local Board = require("game.board")
 local pieces = require("game.pieces")
 local skin = require("game.skin")
 local layout = require("game.layout")
+local input = require("ui.input")
+local Panel = require("ui.panel")
+local jukebox = require("music.jukebox")
 
 local W, H = layout.w, layout.h
 -- The original blinks full rows by inverting them on 10 passes (5 flashes).
@@ -15,18 +18,149 @@ game = {}
 
 local state = "idle"        -- idle (before F2), play, pause, over
 local board
-local startLevel = 1
-local preview = false       -- Options > Piece Preview (off in the original until chosen; F5)
+local startLevel = 1        -- Skill > Starting Level
+local startRows = 0         -- Skill > Starting Rows
+local preview = false       -- Options > Piece Preview (off in the original until chosen)
 local blink = nil           -- { pass = n, t = seconds } while rows clear
+local popups = {}           -- open popups, the last one on top (ui/panel.lua)
+local resumeAfterMenu = false
 
 local function newBoard()
-  board = Board.new({ level = startLevel })
+  board = Board.new({ level = startLevel, rows = startRows })
   blink = nil
 end
 
 local function start()
   newBoard()
   state = "play"
+end
+
+local function pause(on)
+  if on and state == "play" then state = "pause"
+  elseif not on and state == "pause" then state = "play" end
+end
+
+local function push(p) popups[#popups + 1] = p end
+
+-- Closes every popup; a game the menu paused carries on.
+local function closeAll()
+  popups = {}
+  if resumeAfterMenu then pause(false) end
+  resumeAfterMenu = false
+end
+
+-- A message: lines of text, then choices (default just OK). choice(i) runs
+-- after the popup closes.
+local function message(title, lines, choices, choice, focus)
+  local rows = {}
+  for _, l in ipairs(lines) do rows[#rows + 1] = { text = l, center = not l:find("\t") } end
+  rows[#rows + 1] = { text = "" }
+  local first = #rows + 1
+  for i, c in ipairs(choices or { "OK" }) do
+    rows[#rows + 1] = { label = c, center = true, action = function()
+      popups[#popups] = nil
+      if choice then choice(i) end
+    end }
+  end
+  push(Panel.new({ title = title, rows = rows, visible = #rows, width = 300,
+                   focus = first + (focus or 1) - 1 }))
+end
+
+-- Before a game, a new setting shows at once (level, background, rows).
+local function settingsChanged()
+  if state == "idle" or state == "over" then newBoard(); state = "idle" end
+end
+
+local function running() return state == "play" or state == "pause" end
+
+local function settingsPanel()
+  return Panel.new({ title = "Tetris", width = 280, visible = 13, rows = {
+    { header = "GAME" },
+    { label = "New Game", action = function() closeAll(); start() end },
+    { label = function() return (state == "pause" and not resumeAfterMenu) and "Resume" or "Pause" end,
+      enabled = running,
+      action = function()
+        -- The menu paused the game: Pause keeps it paused, Resume carries on.
+        local resume = state == "pause" and not resumeAfterMenu
+        popups = {}
+        resumeAfterMenu = false
+        pause(not resume)
+      end },
+    { label = "Exit", action = function()
+        message("Tetris", { "End Tetris?" }, { "Yes", "No" },
+                function(i) if i == 1 then tp.quit(0) end end, 2)
+      end },
+    { header = "SKILL" },
+    { label = "Starting Level", values = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+      get = function() return startLevel end,
+      set = function(v) startLevel = v; settingsChanged() end },
+    { label = "Starting Rows", values = { 0, 1, 3, 5, 7, 9 },
+      get = function() return startRows end,
+      set = function(v) startRows = v; settingsChanged() end },
+    { header = "OPTIONS" },
+    { label = "Piece Preview", values = { "Off", "On" },
+      get = function() return preview and "On" or "Off" end,
+      set = function(v) preview = (v == "On") end },
+    { label = "Players", values = { 1 }, get = function() return 1 end, set = function() end,
+      enabled = false },
+    { label = "Music", values = jukebox.choices,
+      get = function() return jukebox.choice end,
+      set = function(v) jukebox.choice = v end },
+    { label = "Music Style", values = jukebox.styleNames,
+      get = function() return jukebox.style end,
+      set = function(v) jukebox.style = v end },
+    { label = "Music Volume", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+      get = function() return jukebox.volume end,
+      set = function(v) jukebox.volume = v end },
+    { label = "High Scores", values = { "Off" }, get = function() return "Off" end, set = function() end,
+      enabled = false },
+    { header = "HELP" },
+    { label = "How to Play", action = function()
+        message("How to Play", {
+          "Move and turn the falling pieces",
+          "to fill whole rows. Full rows flash",
+          "and go; everything above drops.",
+          "",
+          "1 row 100   2 rows 200",
+          "3 rows 400   4 rows 800",
+          "plus 6 x level for each piece.",
+          "It speeds up as you clear lines.",
+        })
+      end },
+    { label = "Controls", action = function()
+        message("Controls", {
+          "Left / Right\tMove",
+          "Up\tRotate",
+          "Down, Space\tDrop",
+          "End / Pg Down\tSlide to wall",
+          "F2 / F3\tNew / Pause",
+          "Esc, F12\tMenu",
+          "Right click\tMenu",
+          "",
+          "Controller\t",
+          "D-pad\tMove, Up rotates",
+          "A / B\tRotate / Drop",
+          "Start\tMenu",
+        })
+      end },
+    { label = "About", action = function()
+        message("About", {
+          "Tetrispack",
+          "a port of Tetris for Windows 2.00",
+          "(Microsoft Entertainment Pack),",
+          "played from your own TETRIS.EXE.",
+          "",
+          "Original concept: Alexey Pajitnov",
+          "Windows version: Dave Edson",
+        })
+      end },
+  } })
+end
+
+local function openMenu()
+  resumeAfterMenu = (state == "play")
+  pause(true)
+  popups = { settingsPanel() }
 end
 
 do
@@ -42,51 +176,54 @@ do
   newBoard()
 end
 
-local keys = {
-  left = "left", ["keypad 4"] = "left",
-  right = "right", ["keypad 6"] = "right",
-  up = "rotate", ["keypad 8"] = "rotate", ["keypad 5"] = "rotate", clear = "rotate",
-  down = "drop", ["keypad 2"] = "drop", insert = "drop", ["keypad 0"] = "drop", space = "drop",
-  ["end"] = "slide_left", ["keypad 1"] = "slide_left",
-  ["pagedown"] = "slide_right", ["keypad 3"] = "slide_right",
-}
-
 function game.keypressed(key, rep)
-  if key == "escape" then
-    if state == "play" or state == "pause" then state = "over" else tp.quit(0) end
+  -- The top popup takes everything while one is open.
+  if #popups > 0 then
+    local top = popups[#popups]
+    local a = input.action("ui", key)
+    if a == "menu" then closeAll(); return end
+    if a and top:key(a) == "close" then
+      popups[#popups] = nil
+      if #popups == 0 then closeAll() end
+    end
     return
   end
-  if key == "f2" and not rep then start(); return end
-  if key == "f3" and not rep then
-    if state == "play" then state = "pause" elseif state == "pause" then state = "play" end
-    return
-  end
-  if key == "f5" and not rep then preview = not preview; return end
+
+  local a = input.action("game", key)
+  if a == "menu" then openMenu(); return end
+  if rep and (a == "new" or a == "pause" or a == "preview" or a == "drop" or a == "start") then return end
+  if a == "new" then start(); return end
+  if a == "pause" then pause(state == "play"); return end
+  if a == "preview" then preview = not preview; return end
+
   if state == "idle" or state == "over" then
-    -- Skill > Starting Level: 1-9, 0 for 10.
+    -- Skill > Starting Level from the keyboard: 1-9, 0 for 10.
     local n = tonumber(key)
     if n and #key == 1 then
       startLevel = (n == 0) and 10 or n
-      newBoard()
-      state = "idle"
-    elseif key == "return" and not rep then
-      if state == "over" then state = "idle"; newBoard() else start() end
+      settingsChanged()
+    elseif a == "start" then
+      start()
     end
     return
   end
   if state ~= "play" or board:busy() then return end
-  local a = keys[key]
   if a == "left" then board:left()
   elseif a == "right" then board:right()
   elseif a == "rotate" then board:rotate(1)
-  elseif a == "drop" and not rep then board:drop()
+  elseif a == "drop" then board:drop()
   elseif a == "slide_left" then board:slide(-1)
   elseif a == "slide_right" then board:slide(1)
   end
 end
 
 function game.update(dt)
-  if state ~= "play" then return end
+  -- Music follows the level's background; it holds while the game is paused
+  -- (not while the menu is open, so settings can be heard) and stops at
+  -- game over.
+  jukebox.update(board.level, state ~= "over")
+  jukebox.pause(state == "pause" and #popups == 0)
+  if state ~= "play" or #popups > 0 then return end
   if board.clearing and not blink then blink = { pass = BLINK_PASSES, t = 0 } end
   if blink then
     blink.t = blink.t + dt
@@ -101,7 +238,10 @@ function game.update(dt)
   else
     board:update(dt)
   end
-  if board.over then state = "over" end
+  if board.over then
+    state = "over"
+    message("Tetris", { "Game Over!" })
+  end
 end
 
 local function color(name) return pieces.type[name] end
@@ -159,37 +299,17 @@ local function drawPanel()
   end
 end
 
--- A Windows 3.x message box, like the original's "Game Over!".
-local function messageBox(text)
-  local w, h = 200, 84
-  local x, y = math.floor((W - w) / 2), math.floor((H - h) / 2)
-  tp.fill(x, y, w, h, 0, 0, 0)
-  tp.fill(x + 1, y + 1, w - 2, 18, 0, 0, 128)
-  local title = "Tetris for Windows"
-  tp.text(x + math.floor((w - tp.text_width(title, 1, "system")) / 2), y + 5, title, 1, 255, 255, 255, "system")
-  tp.fill(x + 1, y + 20, w - 2, h - 21, 255, 255, 255)
-  tp.text(x + math.floor((w - tp.text_width(text, 1, "system")) / 2), y + 30, text, 1, 0, 0, 0, "system")
-  local bw, bh = 56, 20
-  local bx, by = x + math.floor((w - bw) / 2), y + h - bh - 8
-  tp.fill(bx, by, bw, bh, 0, 0, 0)
-  tp.fill(bx + 1, by + 1, bw - 2, bh - 2, 255, 255, 255)
-  tp.fill(bx + 2, by + 2, bw - 4, bh - 4, 128, 128, 128)
-  tp.fill(bx + 2, by + 2, bw - 5, bh - 5, 192, 192, 192)
-  tp.text(bx + math.floor((bw - tp.text_width("OK", 1, "system")) / 2), by + 5, "OK", 1, 0, 0, 0, "system")
-end
-
 function game.draw()
   skin.background(board.level, W, H)
   drawPanel()
   drawWell()
-  if state == "pause" then
+  if state == "pause" and #popups == 0 then
     local wx, wy, ww, wh = layout.well()
     local s = "Paused"
     tp.text(wx + math.floor((ww - tp.text_width(s, 1, "system")) / 2), wy + math.floor(wh / 2) - 5, s, 1, 255, 255, 255, "system")
-  elseif state == "over" then
-    messageBox("Game Over!")
   end
+  for _, p in ipairs(popups) do p:draw() end
 end
 
 -- For tests and screenshots: the current state.
-function game.inspect() return { state = state, board = board, blink = blink } end
+function game.inspect() return { state = state, board = board, blink = blink, popups = popups } end

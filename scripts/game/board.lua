@@ -27,9 +27,29 @@ function Board.new(opts)
   b.clearing = nil   -- rows waiting to be removed (the blink plays meanwhile)
   b.grid = {}
   for y = 0, b.h - 1 do b.grid[y] = {} end
+  b:fill_rows(opts.rows or 0)
   b.next = b:random_piece()
   b:spawn()
   return b
+end
+
+-- Skill > Starting Rows: the bottom n rows start partly filled. (The
+-- original's fill pattern isn't confirmed yet: here each cell is filled at
+-- random, at least one gap and one block per row.)
+function Board:fill_rows(n)
+  for y = self.h - n, self.h - 1 do
+    local row, count = {}, 0
+    repeat
+      row, count = {}, 0
+      for x = 0, self.w - 1 do
+        if self.rng(2) == 1 then
+          row[x] = pieces.order[self.rng(#pieces.order)]
+          count = count + 1
+        end
+      end
+    until count > 0 and count < self.w
+    self.grid[y] = row
+  end
 end
 
 function Board:random_piece()
