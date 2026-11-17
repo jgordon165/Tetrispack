@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <fstream>
 #include <iterator>
 #include <string>
 #include <memory>
@@ -141,19 +140,17 @@ int main(int, char** argv) {
         song->notes.push_back({0.0, 0.5, 60, 1.0f, 0});
         song->notes.push_back({0.1, 0.5, 69, 1.0f, 1});
         song->length = 1.0;
-        VgmWriter vgm;
-        setGenesisVgm(&vgm);
-        Player p;
-        p.setVolume(1);
-        p.play(song, 0);
-        vgm.loopHere(0);
-        render(p, 1.0, 44100);
-        setGenesisVgm(nullptr);
-        const std::string path = std::string(argv[0]) + ".test.vgm";
-        CHECK(vgm.save(path, 44100));
-        std::ifstream f(path, std::ios::binary);
-        const std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-        std::remove(path.c_str());
+        VgmWriter& vgm = beginGenesisVgm();
+        {
+            Player p;
+            p.setVolume(1);
+            p.play(song, 0);
+            vgm.loopHere(0);
+            render(p, 1.0, 44100);
+        }
+        const size_t writes = vgm.commands();
+        const std::vector<uint8_t> d = vgm.finish(44100);
+        endGenesisVgm();
         auto u32at = [&](size_t o) { return uint32_t(d[o] | d[o + 1] << 8 | d[o + 2] << 16 | uint32_t(d[o + 3]) << 24); };
         auto has = [&](std::initializer_list<uint8_t> seq) {
             return std::search(d.begin(), d.end(), seq.begin(), seq.end()) != d.end();
@@ -165,7 +162,7 @@ int main(int, char** argv) {
         CHECK(has({0x52, 0x28, 0xF0}));                   // FM key-on, channel 1
         CHECK(has({0x50, 0x8E, 0x50, 0x0F}));             // PSG tone 0: period 254 (A4)
         CHECK(d.back() == 0x66);
-        std::printf("vgm: %zu bytes, %zu chip writes\n", d.size(), vgm.commands());
+        std::printf("vgm: %zu bytes, %zu chip writes\n", d.size(), writes);
     }
 
     // Looping, volume, pause, switching and stopping (on each engine).

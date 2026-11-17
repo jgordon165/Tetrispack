@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <vector>
 
 namespace music {
@@ -20,8 +19,8 @@ public:
     void psg(uint8_t val, uint64_t at);
     // Marks where the song loops back to (the current position).
     void loopHere(uint64_t at);
-    // Ends the log at `at` and writes the file. False on an I/O error.
-    bool save(const std::string& path, uint64_t at);
+    // Ends the log at `at`: the whole .vgm file.
+    std::vector<uint8_t> finish(uint64_t at);
 
     size_t commands() const { return commands_; }
 
@@ -36,8 +35,10 @@ private:
     size_t commands_ = 0;
 };
 
-// While set, Genesis engines created afterwards log their chip writes here
-// (nullptr turns it off). A tool-only hook: the game never sets it.
-void setGenesisVgm(VgmWriter* vgm);
+// Starts a log: Genesis engines created until endGenesisVgm() write their
+// chip writes into the returned writer, which this module owns. A tool-only
+// hook (tools/render_music.cpp, the tests); the game never calls it.
+VgmWriter& beginGenesisVgm();
+void endGenesisVgm();
 
 }  // namespace music

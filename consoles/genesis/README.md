@@ -12,7 +12,7 @@ blink.
   the original's gray 3-D frame. Full rows blink inverted before they go.
 - **Music**: the PC game's Genesis style, the same arrangements on the real
   sound chips. The YM2612 FM and SN76489 PSG writes are logged to VGM
-  (`tetrispack_render_music <scripts> <dir> genesis-vgm`) and played by
+  (`tetrispack_render_music <scripts> genesis-vgm`, into the current folder) and played by
   SGDK's XGM2 driver, one track per pair of levels as on the PC.
 - **Sound effects**: the PC game's, as samples on XGM2's PCM channels.
 - **Title screen**: an About-style box with Starting Level, Starting Rows,

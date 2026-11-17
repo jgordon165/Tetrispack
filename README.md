@@ -104,8 +104,8 @@ melodies are text in `scripts/music/songs.lua` (a small MML,
 `scripts/music/mml.lua`), the accompaniment is generated from each song's
 chords (`scripts/music/arrange.lua`), and every engine's instruments are in
 `scripts/music/instruments.lua`. To hear them outside the game,
-`tetrispack_render_music scripts out/ [winfm|midi|snes|genesis|opl3]` writes a .wav
-per song.
+`tetrispack_render_music <scripts dir> [winfm|midi|snes|genesis|opl3]` writes a .wav
+per song into the current folder.
 
 **Sound effects.** A short mechanical "chk" with a small high bell when a
 piece rotates, and a heavy layered thump with a fuller bell when it lands
