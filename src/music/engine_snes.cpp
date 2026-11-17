@@ -4,6 +4,7 @@
 // SNES music its space. The instrument samples are generated here
 // (waveforms and synthesized drums), not taken from any game.
 #include "music/backend.h"
+#include "music/snes_wave.h"
 
 #include <algorithm>
 #include <array>
@@ -145,6 +146,9 @@ public:
         l = dl + fl * echoVol_;
         r = dr + fr * echoVol_;
     }
+
+    // For the SNES build's exporter (snesWave below).
+    const Sample& sample(Wave w) const { return samples_[size_t(w)]; }
 
 private:
     void build() {
@@ -343,5 +347,11 @@ private:
 }  // namespace
 
 std::unique_ptr<Backend> makeSnes() { return std::make_unique<Snes>(); }
+
+SnesWave snesWave(Wave w) {
+    static const Snes engine;
+    const Sample& s = engine.sample(w);
+    return SnesWave{s.data, s.loop, s.baseKey, kRate, kCycle};
+}
 
 }  // namespace music

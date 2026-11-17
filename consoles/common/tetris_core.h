@@ -18,13 +18,21 @@
 #define TC_EV_LEVEL  0x08   /* the level went up */
 #define TC_EV_OVER   0x10   /* game over */
 
+/* The score needs 32 bits. On the SNES's compiler (816-tcc) a long is 16
+ * bits and long long is 32; its build defines TC_SNES. */
+#ifdef TC_SNES
+typedef unsigned long long tc_score;
+#else
+typedef unsigned long tc_score;
+#endif
+
 typedef struct {
     unsigned char grid[TC_H][TC_W];   /* 0 empty, 1-7 the piece type (= colour) */
     unsigned char piece, rot;         /* falling piece type 1-7, rotation 0-3 */
     signed char x, y;                 /* its pivot cell */
     unsigned char next;               /* the next piece's type */
     unsigned char level;              /* 1-10 */
-    unsigned long score;
+    tc_score score;
     unsigned short lines;
     unsigned short placed;            /* pieces landed so far */
     unsigned char over;

@@ -1,0 +1,29 @@
+# Copied into the work folder by consoles/snes/build.sh (PVSnesLib's
+# snes_rules build): the game, its art (art.asm) and the soundbank.
+ifeq ($(strip $(PVSNESLIB_HOME)),)
+$(error "set PVSNESLIB_HOME to your PVSnesLib folder")
+endif
+
+# The sound effects module first (SNESMOD's -f checks each song fits beside it).
+AUDIOFILES := res/sfx.it res/song1.it res/song2.it res/song3.it res/song4.it res/song5.it
+export SOUNDBANK := res/soundbank
+
+export ROMNAME := tetrispack
+export ROMTITLE := TETRISPACK
+# 512 KB (16 banks of 32 KB): the code, the art and the soundbank (about 230 KB).
+export ROMSIZE := 09
+export ROMBANKS := 16
+
+include ${PVSNESLIB_HOME}/devkitsnes/snes_rules
+
+# The rules' 32-bit score: long long on this compiler (consoles/common).
+CFLAGS += -DTC_SNES
+
+.PHONY: all musics
+
+SMCONVFLAGS := -s -o $(SOUNDBANK) -V -b 5 -f
+musics: $(SOUNDBANK).obj
+
+all: musics $(ROMNAME).sfc
+
+clean: cleanBuildRes cleanRom cleanGfx cleanAudio

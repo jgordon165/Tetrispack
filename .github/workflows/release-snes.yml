@@ -1,0 +1,33 @@
+name: release-snes
+
+on: [workflow_dispatch, workflow_call]
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    # Our own lookalike backgrounds only (no --data): the ROM holds no
+    # original game content and can be shared.
+    - name: Build and smoke-test
+      uses: ./.github/actions/build-snes
+
+    - name: Package
+      run: |
+        version=$(git describe --tags --always)
+        mkdir -p dist stage/Tetrispack-SNES
+        cp build-snes/tetrispack-snes.sfc "stage/Tetrispack-SNES/tetrispack-snes-$version.sfc"
+        cp consoles/snes/README.md stage/Tetrispack-SNES/
+        cp .pvsneslib/pvsneslib/pvsneslib/pvsneslib_license.txt stage/Tetrispack-SNES/PVSNESLIB-LICENSE.txt
+        (cd stage && zip -qr "../dist/tetrispack-snes-$version.zip" Tetrispack-SNES)
+        ls -l dist
+
+    - name: Upload
+      uses: actions/upload-artifact@v6
+      with:
+        name: tetrispack-snes-release
+        if-no-files-found: error
+        path: dist/*.zip

@@ -10,7 +10,7 @@ on:
         description: Platforms to build
         type: choice
         default: all
-        options: [all, linux, mac-osx, windows, genesis]
+        options: [all, linux, mac-osx, windows, genesis, snes]
 
 # Same rule as the Aleph One fork: build pushes, and pull requests only when
 # they come from another repository (a same-repo PR is already built by its push).
@@ -141,3 +141,25 @@ jobs:
             build-genesis/tetrispack-genesis.bin
             build-genesis/smoke/snap
             build-genesis/smoke/result.txt
+
+  snes:
+    if: (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name !=
+      github.event.pull_request.base.repo.full_name) &&
+      (github.event_name != 'workflow_dispatch' ||
+      inputs.platforms == 'all' || inputs.platforms == 'snes')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and smoke-test
+        uses: ./.github/actions/build-snes
+      - name: Upload the ROM and the smoke test's snapshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tetrispack-snes
+          if-no-files-found: ignore
+          path: |
+            build-snes/tetrispack-snes.sfc
+            build-snes/smoke/*.png
+            build-snes/smoke/result.txt
