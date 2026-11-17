@@ -41,6 +41,14 @@ over the window, the score panel, the playfield in its gray frame, the
 original's block colours and bevel, and full rows blinking before they go.
 Without `TETRIS.EXE` it still runs, on a plain background.
 
+**Intro.** It starts, as the original's Help > About does, with the About
+box over the waiting game: the Microsoft Entertainment Pack logo and the
+credits, read from `ABOUTTET.DLL` (the Entertainment Pack keeps it beside
+`TETRIS.EXE`), with the version line from `TETRIS.EXE`. OK closes it: click
+it, or press Enter, Space or Esc (A or B on a controller). It's in the menu
+too, as Help > About Tetris. Without the DLL the box shows the port's own
+credits.
+
 | Key | |
 |---|---|
 | F2 (or Enter) | New game |

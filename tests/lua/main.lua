@@ -273,6 +273,33 @@ end
 -- Layout: the playfield is where the original's WM_SIZE puts it.
 check(layout.grid.cw == 22 and layout.grid.ch == 19, "cell size 22x19 at 640x440")
 
+-- The intro (the original's About box): Enter / Space / Esc close it, and a
+-- click on OK closes it when the button is let go over it.
+do
+  local About = require("ui.about")
+  local a = About.new({ x = 142, y = 32 })
+  check(a:key("accept") == "close", "About: Enter closes")
+  check(a:key("back") == "close", "About: Esc closes")
+  check(a:key("up") == nil, "About: arrows do nothing")
+  local bx, by, bw, bh = a:okRect()
+  check(bx == 142 + 154 and by == 32 + 323 and bw == 60 and bh == 30, "About: OK where the original has it")
+  local cx, cy = bx + 30, by + 15
+  check(a:pointer("mouse left", cx, cy) == true and a.pressed, "About: OK sinks when clicked")
+  check(a:pointer("mouse left up", cx, cy) == "close", "About: OK fires when let go over it")
+  a:pointer("mouse left", cx, cy)
+  check(a:pointer("mouse left up", bx - 20, cy) == true and not a.pressed, "About: dragging off OK cancels")
+  a:pointer("mouse left", 150, 100)
+  check(not a.pressed and a:pointer("mouse left up", cx, cy) == true, "About: a click elsewhere doesn't fire OK")
+  check(a:pointer("mouse left", nil, nil) == true and not a.pressed, "About: clicks outside the canvas are ignored")
+  check(a:pointer("mouse right", cx, cy) == false, "About: right click is left to the menu")
+  if tp.module("about") then
+    check(a.assets.version == "Tetris 2.00", "[data] About: version from TETRIS.EXE")
+    check(a.assets.copyright == "(c) 1990 Microsoft Corporation.", "[data] About: copyright from TETRIS.EXE")
+    check(a.assets.credits[1] == "All Rights Reserved." and #a.assets.credits == 8, "[data] About: credits from ABOUTTET.DLL")
+    check(a.assets.logo and a.assets.logo.w == 259, "[data] About: the logo")
+  end
+end
+
 -- With data: the executable's resources are listed, backgrounds load.
 if tp.has_data() then
   check(#tp.resources() > 0, "[data] resources listed")

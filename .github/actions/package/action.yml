@@ -26,11 +26,11 @@ runs:
       shell: bash
 
     # Packages hold the engine and its scripts only. Fail if anything that
-    # looks like the original game (its executable, help file or extracted
-    # art) got staged.
+    # looks like the original game (its executable, About box DLL, help file,
+    # high scores or extracted art) got staged.
     - name: Check for game content
       run: |
-        bad=$(find stage -type f \( -iname '*.hlp' -o -iname '*.bmp' -o -iname '*.ini' -o -iname '*.exe' -a ! -iname 'tetrispack.exe' \) )
+        bad=$(find stage -type f \( -iname '*.hlp' -o -iname '*.bmp' -o -iname '*.ini' -o -iname '*.hst' -o -iname 'abouttet.dll' -o -iname '*.exe' -a ! -iname 'tetrispack.exe' \) )
         if [ -n "$bad" ]; then echo "game content in the package:"; echo "$bad"; exit 1; fi
       shell: bash
 

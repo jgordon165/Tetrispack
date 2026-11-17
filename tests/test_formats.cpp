@@ -2,6 +2,7 @@
 // memory. With TETRISPACK_DATA set (folder with TETRIS.EXE), also parses the
 // real file.
 
+#include "formats/dialog.h"
 #include "formats/dib.h"
 #include "formats/ne.h"
 
@@ -181,6 +182,36 @@ static void testRejects() {
     CHECK(threw);
 }
 
+// A two-control DLGTEMPLATE like ABOUTTET.DLL's: a centred static line and
+// a default OK button, plus a control whose text is a resource id.
+static void testDialog() {
+    Bytes b;
+    app32(b, 0x80400000);   // WS_POPUP | WS_DLGFRAME
+    b.push_back(3);
+    app16(b, 97); app16(b, 58); app16(b, 174); app16(b, 203);
+    b.push_back(0); b.push_back(0); b.push_back(0);   // no menu, class, caption
+    auto control = [&](int16_t y, uint16_t id, uint32_t style, uint8_t cls, const std::string& text) {
+        app16(b, 0); app16(b, static_cast<uint16_t>(y)); app16(b, 174); app16(b, 8);
+        app16(b, id); app32(b, style); b.push_back(cls);
+        b.insert(b.end(), text.begin(), text.end()); b.push_back(0);
+        b.push_back(0);   // no creation data
+    };
+    control(86, 0, 0x50000001, 0x82, "All Rights Reserved.");
+    control(179, 1, 0x50030001, 0x80, "&OK");
+    app16(b, 16); app16(b, 60); app16(b, 0); app16(b, 0); app16(b, 102); app32(b, 0x50000003);
+    b.push_back(0x82); b.push_back(0xFF); app16(b, 666); b.push_back(0);
+    const tp::Dialog d = tp::decodeDialog(b);
+    CHECK(d.style == 0x80400000 && d.w == 174 && d.h == 203);
+    CHECK(d.controls.size() == 3);
+    CHECK(d.controls[0].cls == "static" && d.controls[0].text == "All Rights Reserved." && d.controls[0].y == 86);
+    CHECK(d.controls[1].cls == "button" && d.controls[1].text == "&OK" && d.controls[1].id == 1);
+    CHECK(d.controls[2].text == "#666" && d.controls[2].id == 102);
+    bool threw = false;
+    b.resize(b.size() - 6);
+    try { tp::decodeDialog(b); } catch (const tp::FormatError&) { threw = true; }
+    CHECK(threw);
+}
+
 static void testRealData() {
     const char* dir = std::getenv("TETRISPACK_DATA");
     if (!dir) return;
@@ -200,6 +231,22 @@ static void testRealData() {
                 ++failures;
             }
         }
+        CHECK(ne.cstringStartingWith("Tetris 2.") == std::string("Tetris 2.00"));
+        // ABOUTTET.DLL, when it's there: the About box's dialog and logo.
+        for (const auto& f : fs::directory_iterator(e.path().parent_path())) {
+            std::string m = f.path().filename().string();
+            for (auto& c : m) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            if (m != "ABOUTTET.DLL") continue;
+            const auto dll = tp::NeFile::load(f.path().string());
+            const auto* dr = dll.find(static_cast<uint16_t>(tp::ResType::Dialog), uint16_t{100});
+            CHECK(dr != nullptr);
+            if (dr) {
+                const auto d = tp::decodeDialog(dll.read(*dr));
+                CHECK(d.controls.size() == 12);
+            }
+            const auto* lr = dll.find(static_cast<uint16_t>(tp::ResType::Bitmap), uint16_t{666});
+            CHECK(lr && tp::decodeDib(dll.read(*lr)).width == 259);
+        }
         return;
     }
     std::fprintf(stderr, "[data] TETRIS.EXE not found in %s\n", dir);
@@ -209,6 +256,7 @@ static void testRealData() {
 int main() {
     testNe();
     testRejects();
+    testDialog();
     testRealData();
     if (failures) { std::fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     std::printf("formats: all passed\n");

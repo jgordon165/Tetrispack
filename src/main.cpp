@@ -28,25 +28,27 @@ extern "C" {
 
 namespace fs = std::filesystem;
 
+// Case-insensitive: TETRIS.EXE, Tetris.exe, ...
+static fs::path findFile(const fs::path& dir, const std::string& upperName) {
+    std::error_code ec;
+    for (const auto& ent : fs::directory_iterator(dir, ec)) {
+        std::string n = ent.path().filename().string();
+        for (auto& c : n) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        if (n == upperName && ent.is_regular_file(ec)) return ent.path();
+    }
+    return {};
+}
+
 bool Engine::loadData() {
     std::error_code ec;
     fs::path p = dataArg;
     if (fs::is_directory(p, ec)) {
         // Case-insensitive: TETRIS.EXE, Tetris.exe, ... (also one level down,
         // e.g. an Entertainment Pack install folder holding WEP/).
-        auto findIn = [](const fs::path& dir) -> fs::path {
-            std::error_code e2;
-            for (const auto& ent : fs::directory_iterator(dir, e2)) {
-                std::string n = ent.path().filename().string();
-                for (auto& c : n) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-                if (n == "TETRIS.EXE" && ent.is_regular_file(e2)) return ent.path();
-            }
-            return {};
-        };
-        fs::path found = findIn(p);
+        fs::path found = findFile(p, "TETRIS.EXE");
         if (found.empty())
             for (const auto& ent : fs::directory_iterator(p, ec))
-                if (ent.is_directory(ec) && !(found = findIn(ent.path())).empty()) break;
+                if (ent.is_directory(ec) && !(found = findFile(ent.path(), "TETRIS.EXE")).empty()) break;
         p = found;
     }
     if (p.empty() || !fs::is_regular_file(p, ec)) {
@@ -56,11 +58,20 @@ bool Engine::loadData() {
     try {
         exe = tp::NeFile::load(p.string());
         exePath = p.string();
-        return true;
     } catch (const std::exception& ex) {
         dataError = p.string() + ": " + ex.what();
         return false;
     }
+    // The About box lives in a DLL the Entertainment Pack ships beside the
+    // game; without it the intro shows the credits as plain text.
+    if (const fs::path dll = findFile(p.parent_path().empty() ? fs::path(".") : p.parent_path(), "ABOUTTET.DLL"); !dll.empty()) {
+        try {
+            about = tp::NeFile::load(dll.string());
+        } catch (const std::exception& ex) {
+            std::fprintf(stderr, "%s: %s (skipping the About box art)\n", dll.string().c_str(), ex.what());
+        }
+    }
+    return true;
 }
 
 static bool callLua(lua_State* L, const char* fn, int nargs) {
@@ -151,17 +162,29 @@ int main(int argc, char** argv) {
                 lua_pushstring(L, input::keyName(ev.key.keysym.sym).c_str());
                 lua_pushboolean(L, ev.key.repeat != 0);
                 ok = callLua(L, "keypressed", 2) && ok;
-            } else if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEWHEEL) {
-                // "mouse left" / "mouse middle" / "mouse right", "mouse wheelup" / "mouse wheeldown"
+            } else if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP || ev.type == SDL_MOUSEWHEEL) {
+                // "mouse left" / "mouse middle" / "mouse right", "mouse wheelup" / "mouse wheeldown",
+                // and "mouse left up" when the left button is let go. Clicks
+                // also pass the canvas pixel under the pointer (nil in the
+                // letterbox), so popups can tell which button was clicked.
                 const char* name = nullptr;
                 if (ev.type == SDL_MOUSEWHEEL) name = ev.wheel.y > 0 ? "mouse wheelup" : ev.wheel.y < 0 ? "mouse wheeldown" : nullptr;
+                else if (ev.type == SDL_MOUSEBUTTONUP) name = ev.button.button == SDL_BUTTON_LEFT ? "mouse left up" : nullptr;
                 else if (ev.button.button == SDL_BUTTON_LEFT) name = "mouse left";
                 else if (ev.button.button == SDL_BUTTON_MIDDLE) name = "mouse middle";
                 else if (ev.button.button == SDL_BUTTON_RIGHT) name = "mouse right";
                 if (name) {
                     lua_pushstring(L, name);
                     lua_pushboolean(L, 0);
-                    ok = callLua(L, "keypressed", 2) && ok;
+                    int cx = 0, cy = 0;
+                    if (ev.type != SDL_MOUSEWHEEL && eng.video.windowToCanvas(ev.button.x, ev.button.y, cx, cy)) {
+                        lua_pushinteger(L, cx);
+                        lua_pushinteger(L, cy);
+                    } else {
+                        lua_pushnil(L);
+                        lua_pushnil(L);
+                    }
+                    ok = callLua(L, "keypressed", 4) && ok;
                 }
             } else if (ev.type == SDL_CONTROLLERDEVICEADDED) {
                 SDL_GameControllerOpen(ev.cdevice.which);

@@ -71,6 +71,17 @@ L 0,3-5 1,3; T 0,3-5 1,4.
 - **Keys** (1:0d3e): Left / Right move, Up or keypad 5 rotate, Down or
   Insert drop, End and Page Down slide to the wall (keypad 1 and 3).
 
+## About box (ABOUTTET.DLL)
+
+Measured from Windows 3.1 at 640x480, in pixels from the box's top-left: the
+box is 356x375 (a 1 px black line, a 4 px blue band, white inside); the
+logo at (53, 15); text lines centred on x = 178 with cap tops at 82
+(version), 106 (copyright) and 140, 160, 194, 210, 240, 256, 280, 296 (the
+dialog's eight credit lines); the default OK button 60x30 at (154, 323),
+where the template puts it (x 75 + 15 dialog units, 2 px each, plus the
+frame). The DLL moves the logo and the version lines at run time, so those
+come from the screenshot rather than the template.
+
 ## Still to confirm
 
 - The rotation rule (which cell is the pivot, any wall kick).

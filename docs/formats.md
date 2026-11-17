@@ -58,6 +58,26 @@ or RLE4/RLE8. Decoded by `src/formats/dib.cpp`.
 Blocks of 16 strings; block *n* holds ids `(n-1)*16 ... (n-1)*16+15`. Each
 string is a length byte then the characters (an empty entry is a 0 byte).
 
+## DIALOG
+
+The 16-bit `DLGTEMPLATE`: style (32 bits), control count (8 bits), x, y,
+width, height in dialog units, then the menu, class and caption (each a
+NUL-terminated string, or `FF` and a 16-bit id). `DS_SETFONT` adds a point
+size and a font name. Each control: x, y, width, height, id, style, then
+its class (a byte `80`-`85` for button / edit / static / listbox /
+scrollbar / combobox, else a name), its text (or `FF` and an id), and a
+length byte for creation data. Decoded by `src/formats/dialog.cpp`.
+
+## ABOUTTET.DLL
+
+The About box the Entertainment Pack games share, a small NE DLL beside
+`TETRIS.EXE`: BITMAP 666 (the colour logo, 259x64) and 999 (monochrome),
+DIALOG 100 (colour) and 101 (monochrome). The dialog's static text holds the
+credits; the game passes the version and copyright lines ("Tetris 2.00",
+"(c) 1990 Microsoft Corporation."), which sit in TETRIS.EXE's data segment,
+not in a resource. The port reads both at runtime (`tp.dialog`,
+`tp.bitmap(666, "about")`, `tp.exe_string`).
+
 ## The game itself
 
 What the port takes from the 2.00 executable (block colours, layout, timer,

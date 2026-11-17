@@ -60,6 +60,11 @@ public:
     // (id / 16) + 1, each entry a length byte then the characters.
     std::optional<std::string> string(uint16_t id) const;
 
+    // The first NUL-terminated string anywhere in the file that starts with
+    // `prefix` (text the program keeps in its data segment rather than in a
+    // resource, such as the version line it hands its About box).
+    std::optional<std::string> cstringStartingWith(const std::string& prefix) const;
+
 private:
     void parseResources(BinReader& r, size_t tableStart, size_t tableEnd);
 

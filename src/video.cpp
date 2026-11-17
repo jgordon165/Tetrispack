@@ -1,5 +1,7 @@
 #include "video.h"
 
+#include <cmath>
+
 #include "font_system.h"
 
 #include <algorithm>
@@ -156,6 +158,21 @@ void Video::compose() {
     const int dw = static_cast<int>(cw_ * s + 0.5), dh = static_cast<int>(ch_ * s + 0.5);
     const SDL_Rect dst{(ow - dw) / 2, (oh - dh) / 2, dw, dh};
     SDL_RenderCopy(ren_, canvas_, nullptr, &dst);
+}
+
+bool Video::windowToCanvas(int wx, int wy, int& cx, int& cy) const {
+    int ow = 0, oh = 0, ww = 0, wh = 0;
+    SDL_GetRendererOutputSize(ren_, &ow, &oh);
+    SDL_GetWindowSize(win_, &ww, &wh);
+    if (ow <= 0 || oh <= 0 || ww <= 0 || wh <= 0 || cw_ <= 0 || ch_ <= 0) return false;
+    // Window points to output pixels (they differ on high-DPI displays).
+    const double px = wx * double(ow) / ww, py = wy * double(oh) / wh;
+    const double s = std::min(double(ow) / cw_, double(oh) / ch_);
+    const double dw = cw_ * s, dh = ch_ * s;
+    const double x = (px - (ow - dw) / 2) / s, y = (py - (oh - dh) / 2) / s;
+    cx = static_cast<int>(std::floor(x));
+    cy = static_cast<int>(std::floor(y));
+    return cx >= 0 && cy >= 0 && cx < cw_ && cy < ch_;
 }
 
 void Video::present() {
