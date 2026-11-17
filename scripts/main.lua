@@ -9,6 +9,9 @@ local layout = require("game.layout")
 local input = require("ui.input")
 local Panel = require("ui.panel")
 local About = require("ui.about")
+local Entry = require("ui.entry")
+local scores = require("game.scores")
+local settings = require("game.settings")
 local jukebox = require("music.jukebox")
 
 local W, H = layout.w, layout.h
@@ -24,7 +27,9 @@ local startRows = 0         -- Skill > Starting Rows
 local preview = false       -- Options > Piece Preview (off in the original until chosen)
 local blink = nil           -- { pass = n, t = seconds } while rows clear
 local popups = {}           -- open popups, the last one on top (ui/panel.lua)
-local sfxVolume = 7         -- Options > Sound Effects, 0-10
+local sfxVolume = 1         -- Options > Sound Effects, 0-10
+local highscores = {}       -- the top ten (game/scores.lua)
+local playerName, playerQuote = "", ""   -- the last ones entered in the Hall of Fame
 local heardPlaced = 0       -- board.placed when we last played "place"
 local resumeAfterMenu = false
 
@@ -55,8 +60,45 @@ end
 
 local function push(p) popups[#popups + 1] = p end
 
+-- Closes popup `p` (wherever it is in the stack); a game the menu paused
+-- carries on once none are left.
+local closeAll
+local function close(p)
+  for i = #popups, 1, -1 do
+    if popups[i] == p then table.remove(popups, i); break end
+  end
+  if #popups == 0 then closeAll() end
+end
+
+-- The options, as saved between runs (game/settings.lua).
+local function saveSettings()
+  settings.save({
+    start_level = startLevel, start_rows = startRows, preview = preview, sfx_volume = sfxVolume,
+    music = jukebox.choice, music_style = jukebox.style, music_volume = jukebox.volume,
+    player_name = playerName, player_quote = playerQuote,
+  })
+end
+
+local function oneOf(v, list)
+  for _, x in ipairs(list) do if x == v then return v end end
+end
+
+local function loadSettings()
+  local t = settings.load()
+  local tenth = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
+  startLevel = oneOf(t.start_level, { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }) or startLevel
+  startRows = oneOf(t.start_rows, { 0, 1, 3, 5, 7, 9 }) or startRows
+  if type(t.preview) == "boolean" then preview = t.preview end
+  sfxVolume = oneOf(t.sfx_volume, tenth) or sfxVolume
+  jukebox.choice = oneOf(t.music, jukebox.choices) or jukebox.choice
+  jukebox.style = oneOf(t.music_style, jukebox.styleNames) or jukebox.style
+  jukebox.volume = oneOf(t.music_volume, tenth) or jukebox.volume
+  if type(t.player_name) == "string" then playerName = t.player_name end
+  if type(t.player_quote) == "string" then playerQuote = t.player_quote end
+end
+
 -- Closes every popup; a game the menu paused carries on.
-local function closeAll()
+function closeAll()
   popups = {}
   if resumeAfterMenu then pause(false) end
   resumeAfterMenu = false
@@ -91,6 +133,52 @@ local function openAbout()
   push(About.new({ x = math.floor((W - About.W) / 2), y = math.floor((H - About.H) / 2) }))
 end
 
+-- "Tetris Experts": the top ten as the original lays them out - the score,
+-- the name, the cool quote. `rank` stands out (a new entry).
+local function showScores(rank)
+  local rows = {}
+  for i = 1, scores.max do
+    local e = highscores[i]
+    rows[#rows + 1] = e and { cols = { e.score, e.name ~= "" and e.name or "-", e.quote }, hot = (i == rank) }
+                        or { cols = { "", "-", "" } }
+  end
+  rows[#rows + 1] = { text = "" }
+  local panel
+  rows[#rows + 1] = { label = "OK", center = true, action = function() close(panel) end }
+  rows[#rows + 1] = { label = "Clear High Scores", center = true, action = function()
+      message("High Scores", { "Clear the high score table?" }, { "Yes", "No" }, function(i)
+        if i == 1 then
+          highscores = {}
+          scores.save(highscores)
+          close(panel)
+          showScores()
+        end
+      end, 2)
+    end }
+  panel = Panel.new({ title = "Tetris Experts", rows = rows, visible = #rows, width = 600,
+                      focus = scores.max + 2,
+                      columns = { { x = 0, w = 70, right = true }, { x = 90, w = 220 }, { x = 324, w = 250 } } })
+  push(panel)
+end
+
+-- A game is over: the sad sound, then the Hall of Fame if the score made
+-- the table, else just "Game Over!".
+local function gameOver()
+  tp.sfx("game_over")
+  if not scores.qualifies(highscores, board.score) then
+    message("Tetris", { "Game Over!" })
+    return
+  end
+  local score, level, lines = board.score, board.level, board.lines
+  push(Entry.new({ name = playerName, quote = playerQuote, score = score, done = function(name, quote)
+    playerName, playerQuote = name, quote
+    saveSettings()
+    local rank = scores.insert(highscores, { score = score, level = level, lines = lines, name = name, quote = quote })
+    scores.save(highscores)
+    showScores(rank)
+  end }))
+end
+
 local function settingsPanel()
   return Panel.new({ title = "Tetris", width = 280, visible = 13, rows = {
     { header = "GAME" },
@@ -104,6 +192,7 @@ local function settingsPanel()
         resumeAfterMenu = false
         pause(not resume)
       end },
+    { label = "High Scores", action = function() showScores() end },
     { label = "Exit", action = function()
         message("Tetris", { "End Tetris?" }, { "Yes", "No" },
                 function(i) if i == 1 then tp.quit(0) end end, 2)
@@ -111,30 +200,28 @@ local function settingsPanel()
     { header = "SKILL" },
     { label = "Starting Level", values = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
       get = function() return startLevel end,
-      set = function(v) startLevel = v; settingsChanged() end },
+      set = function(v) startLevel = v; settingsChanged(); saveSettings() end },
     { label = "Starting Rows", values = { 0, 1, 3, 5, 7, 9 },
       get = function() return startRows end,
-      set = function(v) startRows = v; settingsChanged() end },
+      set = function(v) startRows = v; settingsChanged(); saveSettings() end },
     { header = "OPTIONS" },
     { label = "Piece Preview", values = { "Off", "On" },
       get = function() return preview and "On" or "Off" end,
-      set = function(v) preview = (v == "On") end },
+      set = function(v) preview = (v == "On"); saveSettings() end },
     { label = "Players", values = { 1 }, get = function() return 1 end, set = function() end,
       enabled = false },
     { label = "Music", values = jukebox.choices,
       get = function() return jukebox.choice end,
-      set = function(v) jukebox.choice = v end },
+      set = function(v) jukebox.choice = v; saveSettings() end },
     { label = "Music Style", values = jukebox.styleNames,
       get = function() return jukebox.style end,
-      set = function(v) jukebox.style = v end },
+      set = function(v) jukebox.style = v; saveSettings() end },
     { label = "Sound Effects", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
       get = function() return sfxVolume end,
-      set = function(v) sfxVolume = v; tp.sfx_volume(v / 10); tp.sfx("rotate") end },
+      set = function(v) sfxVolume = v; tp.sfx_volume(v / 10); tp.sfx("rotate"); saveSettings() end },
     { label = "Music Volume", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
       get = function() return jukebox.volume end,
-      set = function(v) jukebox.volume = v end },
-    { label = "High Scores", values = { "Off" }, get = function() return "Off" end, set = function() end,
-      enabled = false },
+      set = function(v) jukebox.volume = v; saveSettings() end },
     { header = "HELP" },
     { label = "How to Play", action = function()
         message("How to Play", {
@@ -195,6 +282,8 @@ do
     tp.log("no data: " .. err)
   end
   tp.title("Tetris for Windows")
+  loadSettings()
+  highscores = scores.load()
   tp.sfx_volume(sfxVolume / 10)
   newBoard()
   -- The intro: the About box over the waiting game, until OK.
@@ -207,20 +296,17 @@ function game.keypressed(key, rep, x, y)
   -- The top popup takes everything while one is open.
   if #popups > 0 then
     local top = popups[#popups]
-    if top.pointer then
-      local r = top:pointer(key, x, y)
-      if r == "close" then
-        popups[#popups] = nil
-        if #popups == 0 then closeAll() end
-        return
-      elseif r then return end
+    -- Popups that want keys as they are (text entry) or clicks where they land.
+    for _, hook in ipairs({ "raw", "pointer" }) do
+      if top[hook] then
+        local r = top[hook](top, key, x, y)
+        if r == "close" then close(top); return
+        elseif r then return end
+      end
     end
     local a = input.action("ui", key)
     if a == "menu" then closeAll(); return end
-    if a and top:key(a) == "close" then
-      popups[#popups] = nil
-      if #popups == 0 then closeAll() end
-    end
+    if a and top:key(a) == "close" then close(top) end
     return
   end
 
@@ -282,7 +368,7 @@ function game.update(dt)
   landed()
   if board.over then
     state = "over"
-    message("Tetris", { "Game Over!" })
+    gameOver()
   end
 end
 
@@ -353,5 +439,11 @@ function game.draw()
   for _, p in ipairs(popups) do p:draw() end
 end
 
+-- Typed text (UTF-8) for a popup that takes it (the Hall of Fame).
+function game.textinput(s)
+  local top = popups[#popups]
+  if top and top.text then top:text(s) end
+end
+
 -- For tests and screenshots: the current state.
-function game.inspect() return { state = state, board = board, blink = blink, popups = popups } end
+function game.inspect() return { state = state, board = board, blink = blink, popups = popups, highscores = highscores } end

@@ -135,6 +135,28 @@ void Sfx::prepare(int rate) {
         bell(pcm, 3136.0, 1.4, 0.18f, 0.33);                       // sparkle, an octave above the top
         bell(pcm, 523.25, 1.2, 0.3f, 0.0);                          // and a low C under it all
     }
+
+    // Game over: the stack giving way - a crunchy square sweep falling from
+    // 420 to 55 Hz with a rumble of noise under it - then a slow bell fall
+    // in minor, G5 Eb5 C5, ending on a long low C.
+    ph = 0;
+    lp = 0;
+    make("game_over", 0.9, [&](double t) {
+        const double hz = 55 + 365 * std::exp(-t / 0.28);
+        ph += 2 * kPi * hz / rate;
+        lp += 0.2f * (noise() - lp);
+        const double sq = std::sin(ph) >= 0 ? 1.0 : -1.0;
+        const double wobble = 0.75 + 0.25 * std::sin(2 * kPi * 9 * t);    // a slow wah
+        const double env = std::min(1.0, t / 0.01) * std::exp(-t / 0.45);
+        return float(sat(env * (0.55 * sq * wobble + 0.5 * lp), 1.4) * 0.8);
+    });
+    crush(effects_.back().pcm, 11025, 5);
+    {
+        auto& pcm = effects_.back().pcm;
+        const double notes[] = {784.0, 622.25, 523.25};
+        for (int k = 0; k < 3; ++k) bell(pcm, notes[k], 0.9, 0.45f, 0.35 + 0.28 * k);
+        bell(pcm, 261.63, 2.0, 0.5f, 1.2);
+    }
 }
 
 bool Sfx::play(const std::string& name, float gain) {

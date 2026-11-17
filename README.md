@@ -64,12 +64,28 @@ credits.
 **Menu.** Esc, F12, a right click or Start on a controller pauses the game
 and opens the menu: a popup in the game's own style (black, in the
 playfield's gray frame) with one scrollable list. Game: New Game, Pause /
-Resume, Exit. Skill: Starting Level, Starting Rows. Options: Piece Preview
-(Players and High Scores are grayed out until the port has them).
-Help: How to Play, Controls, About. Music, Music Style and Music Volume
-are under Options. Up / Down (or the mouse wheel) choose,
+Resume, High Scores, Exit. Skill: Starting Level, Starting Rows. Options:
+Piece Preview, Music, Music Style, Sound Effects (1 to start with), Music
+Volume (Players is grayed out until the port has two-player). Help: How
+to Play, Controls, About. Up / Down (or the mouse wheel) choose,
 Left / Right change a setting, Enter (or A) picks, Esc (or B) goes back.
-Messages (Exit?, Game Over) use the same popup.
+Messages (Exit?, Game Over) use the same popup. The options are saved as
+you change them and come back next time.
+
+**High scores.** As in the original, the top ten each keep a name and a
+"cool quote". A game that makes the table asks for them, in the original's
+own words ("Congrats! You have made the TETRIS Hall of Fame!"), then shows
+"Tetris Experts" with the new entry highlighted. Type on the keyboard, or
+on a controller change the last letter with Up / Down, add one with Right,
+remove one with Left or B, and go on with A. Game > High Scores shows the
+table (and can clear it). The first time, the table starts from the
+original's own `TETRIS.HST` if it's beside your TETRIS.EXE (read, never
+written).
+
+**Where things are saved.** The options and the high scores are small
+text files in your user folder for apps: `%APPDATA%\jgordon165\Tetrispack`
+on Windows, `~/.local/share/jgordon165/Tetrispack` on Linux,
+`~/Library/Application Support/jgordon165/Tetrispack` on macOS.
 
 **Music.** Five pieces of 1.5 to 2.5 minutes, one per pair of levels so the music
 changes with the background: *Korobeiniki* (the public-domain folk song behind Tetris,
@@ -111,8 +127,9 @@ per song into the current folder.
 piece rotates, and a heavy layered thump with a fuller bell when it lands
 (dropped or by gravity). Clearing rows chimes - three bells rising over a
 crunchy whoosh, or for three rows or more a low boom under a five-bell run
-and a shimmering top note; the thumps bit-crushed for a chunky 16-bit
-texture, the bells left clean. Synthesized by the port
+and a shimmering top note. Losing plays the stack giving way: a crunchy
+falling sweep under a slow minor bell fall to a long low C. The thumps are
+bit-crushed for a chunky 16-bit texture, the bells left clean. Synthesized by the port
 (`src/music/sfx.cpp`) and mixed over whichever music style is playing.
 Options > Sound Effects sets their volume.
 

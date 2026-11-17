@@ -78,6 +78,15 @@ credits; the game passes the version and copyright lines ("Tetris 2.00",
 not in a resource. The port reads both at runtime (`tp.dialog`,
 `tp.bitmap(666, "about")`, `tp.exe_string`).
 
+## TETRIS.HST
+
+The original's high score table, beside TETRIS.EXE (660 bytes): ten
+16-bit scores (little-endian, highest first), then ten records of a
+32-byte name and a 32-byte "cool quote", each NUL-terminated (the rest of
+the field is whatever was there before, often spaces). An entry with an
+empty name is still a score. The port reads it once to start its own
+table (`scripts/game/scores.lua`) and never writes it.
+
 ## The game itself
 
 What the port takes from the 2.00 executable (block colours, layout, timer,
