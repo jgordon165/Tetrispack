@@ -2,11 +2,13 @@
 #pragma once
 
 #include "audio.h"
+#include "storage.h"
 #include "formats/ne.h"
 #include "video.h"
 
 #include <optional>
 #include <string>
+#include <vector>
 
 struct Engine {
     Video video;
@@ -15,6 +17,8 @@ struct Engine {
     std::string exePath;          // the TETRIS.EXE found, if any
     std::optional<tp::NeFile> exe;
     std::optional<tp::NeFile> about;  // ABOUTTET.DLL beside it (the About box), if there
+    std::optional<std::vector<uint8_t>> hst;  // TETRIS.HST beside it (the original's high scores), if there
+    Storage storage;              // options and high scores between runs
     std::string dataError;        // why there's no data, for the no-data screen
     bool quit = false;
     int exitCode = 0;

@@ -79,7 +79,7 @@ static bool writeWav(const std::string& name, const std::vector<int16_t>& pcm, i
 
 // Each sound effect on its own, mono.
 static int writeSfx(int rate) {
-    for (const char* name : {"rotate", "place", "clear", "clear_big"}) {
+    for (const char* name : {"rotate", "place", "clear", "clear_big", "game_over"}) {
         music::Sfx sfx;
         sfx.prepare(rate);
         sfx.setVolume(1.0f);

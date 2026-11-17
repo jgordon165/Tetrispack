@@ -71,6 +71,13 @@ bool Engine::loadData() {
             std::fprintf(stderr, "%s: %s (skipping the About box art)\n", dll.string().c_str(), ex.what());
         }
     }
+    // The original's high score table, to start ours from (read only).
+    if (const fs::path h = findFile(p.parent_path().empty() ? fs::path(".") : p.parent_path(), "TETRIS.HST"); !h.empty()) {
+        try {
+            hst = tp::readFile(h.string());
+        } catch (const std::exception&) {
+        }
+    }
     return true;
 }
 
@@ -138,6 +145,11 @@ int main(int argc, char** argv) {
     if (!eng.audio.open()) std::fprintf(stderr, "playing without sound\n");
     if (!eng.video.open("Tetris for Windows", 640, 440, scale)) { SDL_Quit(); return 1; }
 
+    // Options and high scores persist, except in headless (test) runs.
+    eng.storage.open(maxFrames < 0);
+    // Typed text (names for the high score table) arrives as SDL_TEXTINPUT.
+    SDL_StartTextInput();
+
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
     registerLuaApi(L, &eng);
@@ -162,6 +174,11 @@ int main(int argc, char** argv) {
                 lua_pushstring(L, input::keyName(ev.key.keysym.sym).c_str());
                 lua_pushboolean(L, ev.key.repeat != 0);
                 ok = callLua(L, "keypressed", 2) && ok;
+            } else if (ev.type == SDL_TEXTINPUT) {
+                // game.textinput(s): what was typed, as UTF-8 (layouts and
+                // Shift already applied).
+                lua_pushstring(L, ev.text.text);
+                ok = callLua(L, "textinput", 1) && ok;
             } else if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP || ev.type == SDL_MOUSEWHEEL) {
                 // "mouse left" / "mouse middle" / "mouse right", "mouse wheelup" / "mouse wheeldown",
                 // and "mouse left up" when the left button is let go. Clicks

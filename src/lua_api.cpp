@@ -146,6 +146,33 @@ int l_exe_string(lua_State* L) {
     return 1;
 }
 
+// tp.storage_read(name) -> text | nil; tp.storage_write(name, text) -> bool.
+// Small files the game keeps between runs (src/storage.h); names are
+// letters, digits and '_'.
+int l_storage_read(lua_State* L) {
+    std::string text;
+    if (!eng(L)->storage.read(luaL_checkstring(L, 1), text)) return 0;
+    lua_pushlstring(L, text.data(), text.size());
+    return 1;
+}
+
+int l_storage_write(lua_State* L) {
+    size_t n = 0;
+    const char* text = luaL_checklstring(L, 2, &n);
+    lua_pushboolean(L, eng(L)->storage.write(luaL_checkstring(L, 1), std::string(text, n)));
+    return 1;
+}
+
+// tp.data_file("TETRIS.HST") -> its bytes | nil: the original's other
+// files found beside TETRIS.EXE (read only).
+int l_data_file(lua_State* L) {
+    const std::string name = luaL_checkstring(L, 1);
+    const auto& hst = eng(L)->hst;
+    if (name != "TETRIS.HST" || !hst || hst->empty()) return 0;
+    lua_pushlstring(L, reinterpret_cast<const char*>(hst->data()), hst->size());
+    return 1;
+}
+
 int l_canvas(lua_State* L) {
     if (lua_gettop(L) >= 2) eng(L)->video.setCanvas(iarg(L, 1), iarg(L, 2));
     lua_pushinteger(L, eng(L)->video.canvasW());
@@ -261,6 +288,7 @@ void registerLuaApi(lua_State* L, Engine* e) {
     static const luaL_Reg fns[] = {
         {"has_data", l_has_data}, {"module", l_module}, {"resources", l_resources},
         {"bitmap", l_bitmap}, {"string", l_string}, {"dialog", l_dialog}, {"exe_string", l_exe_string},
+        {"storage_read", l_storage_read}, {"storage_write", l_storage_write}, {"data_file", l_data_file},
         {"canvas", l_canvas}, {"clear", l_clear}, {"fill", l_fill}, {"text", l_text},
         {"text_width", l_text_width}, {"draw", l_draw},
         {"key_down", l_key_down}, {"ticks", l_ticks}, {"title", l_title},
