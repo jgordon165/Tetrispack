@@ -113,6 +113,11 @@ A.bassStyles = {
     for i, k in ipairs(seq) do out[#out + 1] = { (i - 1) * 0.25, k } end
     return out, 0.18
   end,
+  -- House: syncopated root and octave, a fifth pushing into the next bar.
+  house = function(chord, low)
+    local r, f = rootKey(chord, low), fifthKey(chord, low)
+    return { { 0, r }, { 0.5, r + 12 }, { 1.5, r }, { 2, r }, { 2.5, r + 12 }, { 3.25, f }, { 3.5, r + 12 } }, 0.3
+  end,
   -- Steady pumping eighths with an octave lift every other beat.
   pump = function(chord, low)
     local r, out = rootKey(chord, low), {}
@@ -146,11 +151,18 @@ A.patterns = {
   slow  = { kick = "x.........x.....", snare = "........x.......", hat = "x...o...x...o..." },
   -- Racing rock: kick on every beat plus pushes, open hats on the off-beats.
   racer = { kick = "x...x..xx...x..x", snare = "....x.......x...", hat = "xoxoxoxoxoxoxoxo", open = "..x...x...x...x." },
+  -- House: four on the floor, claps, off-beat open hats.
+  house = { kick = "x...x...x...x...", clap = "....x.......x...", hat = "o.o.o.o.o.o.o.o.", open = "..x...x...x...x." },
+  -- A bouncy platformer overworld: light kit with bongos and congas.
+  smw   = { kick = "x.......x.......", snare = "....o.......o...", hat = "..o...o...o...o.",
+            conga = "x..x..x...x.x...", bongo = "..x...x.x..x..xx" },
 }
 A.fills = {
   snare = { snare = "....x.x.xoxoxxxx", kick = "x.......x.......", tom = "................" },
   toms  = { snare = "....x.......x.x.", kick = "x.......x.......", tom = "........x.x.x.xx" },
   racer = { snare = "x.x.x.xxx.x.....", kick = "x...x...x.......", tom = "........x.x.x.xx" },
+  house = { kick = "x...x...x...x...", clap = "....x.......x.xx", snare = "........x.x.xxxx", open = "..x...x........." },
+  smw   = { kick = "x.......x.......", snare = "........x.x.x.x.", bongo = "x.x.x.x.xxxx....", conga = "x..x..x........." },
 }
 
 function A.drums(bars, patternName, opts)
@@ -159,12 +171,18 @@ function A.drums(bars, patternName, opts)
   local fill = A.fills[opts.fill or "snare"]
   local every = opts.fillEvery or 8
   local out = { kick = {}, snare = {}, hat = {}, crash = {}, tom = {}, open = {} }
+  for part in pairs(p) do out[part] = out[part] or {} end
+  for part in pairs(fill) do out[part] = out[part] or {} end
   local tomKeys = { 50, 47, 45, 43 }
+  -- Hand drums alternate a low and a high hit.
+  local handKeys = { conga = { 60, 64 }, bongo = { 60, 65 } }
   for bar = 1, bars do
     local isFill = (bar % every == 0)
     for part, list in pairs(out) do
-      local steps = (isFill and fill[part]) or p[part]
-      if (part == "hat" or part == "open") and isFill then steps = (part == "hat") and "x.o.x.o........." or nil end
+      local steps
+      if isFill then steps = fill[part] or ((part == "hat" or part == "conga") and p[part] or nil)
+      else steps = p[part] end
+      if part == "hat" and isFill and not fill.hat then steps = "x.o.x.o........." end
       if steps then
         local n = 0
         for i = 1, 16 do
@@ -175,6 +193,7 @@ function A.drums(bars, patternName, opts)
             if isFill and part == "snare" and i > 8 then vel = 0.5 + 0.03 * i end
             local key = 60
             if part == "tom" then key = tomKeys[math.min(#tomKeys, math.floor((n + 1) / 2))] end
+            if handKeys[part] then key = handKeys[part][(n - 1) % 2 + 1] end
             list[#list + 1] = { (bar - 1) * 4 + (i - 1) * 0.25, 0.2, key, math.min(1, vel) }
           end
         end
@@ -189,19 +208,45 @@ end
 
 -- Power-chord stabs (root, fifth, octave) on a 16-step rhythm per bar,
 -- from the root at or above `low`.
+-- opts.tones = "triad" plays the chord's own tones (house piano/organ
+-- stabs) instead of a power chord.
 function A.stabs(chords, rhythm, low, opts)
   opts = opts or {}
   local out = {}
   for bar = opts.from or 1, opts.to or #chords do
-    local r = rootKey(A.chords[chords[bar]], low)
+    local chord = A.chords[chords[bar]]
+    local r = rootKey(chord, low)
+    local keys = { r, r + 7, r + 12 }
+    if opts.tones == "triad" then
+      keys = {}
+      for i = 1, math.min(3, #chord) do keys[i] = low + ((chord[i] - low) % 12) end
+      table.sort(keys)
+    end
     for i = 1, 16 do
       local c = rhythm:sub(i, i)
       if c == "x" or c == "o" then
         local t = (bar - 1) * 4 + (i - 1) * 0.25
         local vel = (c == "x") and 0.85 or 0.6
-        for _, k in ipairs({ r, r + 7, r + 12 }) do out[#out + 1] = { t, 0.2, k, vel } end
+        for _, k in ipairs(keys) do out[#out + 1] = { t, 0.2, k, vel } end
       end
     end
+  end
+  return out
+end
+
+-- Swing: moves off-beat notes later (0.5 = straight, 0.667 = triplet
+-- shuffle), stretching everything within each beat to match.
+function A.swing(notes, amount)
+  local out = {}
+  local function map(t)
+    local b = math.floor(t + 1e-9)
+    local f = t - b
+    if f <= 0.5 then return b + f / 0.5 * amount end
+    return b + amount + (f - 0.5) / 0.5 * (1 - amount)
+  end
+  for i, n in ipairs(notes) do
+    local s, e = map(n[1]), map(n[1] + n[2])
+    out[i] = { s, math.max(0.05, e - s), n[3], n[4] }
   end
   return out
 end

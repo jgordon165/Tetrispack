@@ -52,7 +52,8 @@ OplOperator oplOp(lua_State* L, int t, const char* k) {
 Wave waveNamed(const std::string& s) {
     static const char* names[] = {"pulse12", "pulse25", "pulse50", "saw", "triangle", "sine", "organ",
                                   "strings", "epiano", "bell", "brass", "kick", "snare", "hat", "crash",
-                                  "pluck", "tom", "openhat"};
+                                  "pluck", "tom", "openhat", "m1piano", "m1organ", "m1bass", "flute",
+                                  "marimba", "conga", "bongo", "clap"};
     for (int i = 0; i < int(Wave::Count); ++i)
         if (s == names[i]) return Wave(i);
     return Wave::Pulse25;

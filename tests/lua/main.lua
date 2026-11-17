@@ -206,14 +206,30 @@ do
   end
   -- The Super NES restyles: faster, racing bass, stabs, open hats; the others don't.
   local koro = jukebox.songs[1]
+  local pm = jukebox.songs[2]   -- in the general racing style
   local function has(tracks, inst) for _, t in ipairs(tracks) do if t.inst == inst then return true end end return false end
-  local snes, md = jukebox.tracks(koro, "snes"), jukebox.tracks(koro, "genesis")
+  local snes, md = jukebox.tracks(pm, "snes"), jukebox.tracks(pm, "genesis")
   check(has(snes, "stabs") and has(snes, "open") and not has(snes, "bells"), "snes: stabs and open hats, no doublings")
   check(not has(md, "stabs") and has(md, "bells"), "mega drive: the song's own arrangement")
-  check(jukebox.tempo(koro, "snes") > koro.tempo and jukebox.tempo(koro, "genesis") == koro.tempo, "snes plays faster")
+  check(jukebox.tempo(pm, "snes") > pm.tempo and jukebox.tempo(pm, "genesis") == pm.tempo, "snes plays faster")
   local bassSnes
   for _, t in ipairs(snes) do if t.inst == "bass" then bassSnes = t end end
-  check(#bassSnes.notes == koro.bars * 16, "snes bass in sixteenths")
+  check(#bassSnes.notes == pm.bars * 16, "snes bass in sixteenths")
+  -- Per-song Super NES styles: Korobeiniki house, Samovar platformer.
+  local function insts(tracks) local t = {} for _, x in ipairs(tracks) do t[x.inst] = x end return t end
+  local k = insts(jukebox.tracks(koro, "snes"))
+  check(k.m1piano and k.organ and k.clap and k.m1bass and not k.arp, "snes Korobeiniki: piano, organ stabs, claps, no arps")
+  check(jukebox.tempo(koro, "snes") == 124, "snes Korobeiniki at a house tempo")
+  local sam = jukebox.songs[3]
+  local s3 = insts(jukebox.tracks(sam, "snes"))
+  check(s3.flute and s3.marimba and s3.conga and s3.bongo and not s3.stabs, "snes Samovar: flute, marimba, hand drums")
+  local swung = false
+  for _, n in ipairs(s3.flute.notes) do
+    local f = n[1] - math.floor(n[1])
+    if math.abs(f - 0.64) < 1e-6 then swung = true end
+  end
+  check(swung, "snes Samovar swings its off-beats")
+  check(insts(jukebox.tracks(sam, "genesis")).accordion ~= nil, "other engines keep the accordion")
   check(jukebox.soundfont ~= nil, "the GS SoundFont loads (Windows MIDI)")
   local midi = jukebox.build(koro, "midi")
   check(midi.soundfont == jukebox.soundfont and #midi.instruments > 5, "midi build names the SoundFont")

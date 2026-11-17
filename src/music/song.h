@@ -46,7 +46,8 @@ struct Envelope {
 // The SNES-style engine's built-in waveforms (generated, not sampled).
 enum class Wave {
     Pulse12, Pulse25, Pulse50, Saw, Triangle, Sine, Organ, Strings, EPiano, Bell, Brass,
-    Kick, Snare, Hat, Crash, Pluck, Tom, OpenHat, Count
+    Kick, Snare, Hat, Crash, Pluck, Tom, OpenHat,
+    M1Piano, M1Organ, M1Bass, Flute, Marimba, Conga, Bongo, Clap, Count
 };
 
 enum class Kind { Opl, Fm4, PsgTone, PsgNoise, Sample, Gm };

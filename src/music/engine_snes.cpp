@@ -190,6 +190,15 @@ private:
         cycle(Wave::EPiano, [](int n) { const double a[] = {0, 1, 0.3, 0.12, 0.05}; return n < 5 ? a[n] : 0.0; }, 4);
         cycle(Wave::Bell, [](int n) { const double a[] = {0, 1, 0, 0.45, 0, 0, 0.3, 0, 0, 0, 0.15}; return n < 11 ? a[n] : 0.0; }, 10);
         cycle(Wave::Brass, [](int n) { return n <= 14 ? std::pow(double(n), -0.85) : 0.0; }, 14);
+        // House organ: drawbars 16', 8', 5 1/3', 4', 2 2/3', 2' (as harmonics of the 16').
+        cycle(Wave::M1Organ, [](int n) {
+            const double a[] = {0, 1.0, 0.85, 0.6, 0.5, 0, 0.32, 0, 0.25};
+            return n < 9 ? a[n] : 0.0;
+        }, 8);
+        // A round synth/finger bass.
+        cycle(Wave::M1Bass, [](int n) { return n <= 12 ? std::pow(double(n), -1.6) * (n % 2 ? 1.0 : 0.6) : 0.0; }, 12);
+        // A soft flute / whistle: nearly a sine.
+        cycle(Wave::Flute, [](int n) { const double a[] = {0, 1, 0.12, 0.05}; return n < 4 ? a[n] : 0.0; }, 3);
 
         // One-shots, synthesized.
         unsigned seed = 12345;
@@ -245,6 +254,49 @@ private:
             const double hz = 95 + 90 * std::exp(-t / 0.06);
             ph += 2 * kPi * hz / kRate;
             return float(std::sin(ph) * std::exp(-t / 0.16));
+        });
+        // An early-90s workstation piano (the bright, chorused house piano):
+        // stretched partials that die away faster the higher they are, a
+        // hammer click, and a second copy a few cents sharp for the chorus.
+        oneShot(Wave::M1Piano, 2.2, 60, [&](double t) {
+            const double f0 = 261.63, B = 0.00035;
+            double s = 0;
+            for (int n = 1; n <= 14; ++n) {
+                const double fn = f0 * n * std::sqrt(1 + B * n * n);
+                const double a = std::pow(double(n), -1.05) * std::exp(-t * (0.9 + 0.55 * n));
+                s += a * (std::sin(2 * kPi * fn * t) + 0.7 * std::sin(2 * kPi * fn * 1.0035 * t + 0.6));
+            }
+            const double hammer = t < 0.006 ? noise() * (1 - t / 0.006) * 0.4 : 0.0;
+            return float(0.42 * s * (1 - std::exp(-t / 0.0015)) + hammer);
+        });
+        // Marimba: the fundamental, its fourth partial, a short knock.
+        oneShot(Wave::Marimba, 1.0, 60, [&](double t) {
+            const double f0 = 261.63;
+            return float(std::sin(2 * kPi * f0 * t) * std::exp(-t / 0.32) +
+                         0.35 * std::sin(2 * kPi * f0 * 4.0 * t) * std::exp(-t / 0.05) +
+                         0.12 * std::sin(2 * kPi * f0 * 9.9 * t) * std::exp(-t / 0.015)) * 0.8f;
+        });
+        ph = 0;
+        oneShot(Wave::Conga, 0.4, 60, [&](double t) {
+            const double hz = 210 + 50 * std::exp(-t / 0.02);
+            ph += 2 * kPi * hz / kRate;
+            const double slap = t < 0.01 ? noise() * (1 - t / 0.01) * 0.3 : 0.0;
+            return float(std::sin(ph) * std::exp(-t / 0.16) + slap);
+        });
+        ph = 0;
+        oneShot(Wave::Bongo, 0.25, 60, [&](double t) {
+            const double hz = 400 + 80 * std::exp(-t / 0.01);
+            ph += 2 * kPi * hz / kRate;
+            return float(std::sin(ph) * std::exp(-t / 0.07));
+        });
+        lp = 0;
+        oneShot(Wave::Clap, 0.3, 60, [&](double t) {
+            lp += 0.5f * (noise() - lp);
+            const float band = noise() - lp;                       // keep the middle
+            double env = std::exp(-t / 0.09);
+            for (double burst : {0.0, 0.011, 0.022})               // three hands, slightly apart
+                if (t >= burst && t < burst + 0.009) env += std::exp(-(t - burst) / 0.003);
+            return float(band * env * 0.5);
         });
         {   // Karplus-Strong pluck at A3.
             const int period = int(kRate / 220.0);

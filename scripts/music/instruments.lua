@@ -159,6 +159,22 @@ I.snes = {
   open = s("openhat", drum, { key = 60, gain = 0.32, pan = 0.3 }),
   crash = s("crash", drum, { key = 60, gain = 0.5, pan = -0.3, echo = 0.3, priority = 2 }),
   tom = s("tom", drum, { gain = 0.75, echo = 0.2, priority = 2 }),
+
+  -- Korobeiniki's workstation-house set.
+  m1piano = s("m1piano", { attack = 0.001, decay = 10, sustain = 1, release = 0.25 }, { gain = 0.62, echo = 0.35, priority = 3 }),
+  m1piano_soft = s("m1piano", { attack = 0.001, decay = 10, sustain = 1, release = 0.25 }, { gain = 0.3, pan = -0.4, echo = 0.35, priority = 2 }),
+  organ = s("m1organ", { attack = 0.002, decay = 0.25, sustain = 0.5, release = 0.08 }, { gain = 0.24, pan = 0.3, echo = 0.3 }),
+  m1bass = s("m1bass", { attack = 0.002, decay = 0.25, sustain = 0.6, release = 0.05 }, { gain = 0.85, priority = 3 }),
+  clap = s("clap", drum, { key = 60, gain = 0.6, echo = 0.35, priority = 2 }),
+
+  -- Samovar's platformer set.
+  flute = s("flute", { attack = 0.025, decay = 0.4, sustain = 0.8, release = 0.1 },
+            { vibrato = 0.25, echo = 0.4, gain = 0.6, priority = 3 }),
+  marimba = s("marimba", { attack = 0.001, decay = 10, sustain = 1, release = 0.2 }, { gain = 0.42, pan = -0.35, echo = 0.3, priority = 2 }),
+  marimba_hi = s("marimba", { attack = 0.001, decay = 10, sustain = 1, release = 0.15 }, { gain = 0.3, pan = 0.4, echo = 0.3 }),
+  bouncy = s("m1bass", { attack = 0.002, decay = 0.12, sustain = 0.3, release = 0.04 }, { gain = 0.85, priority = 3 }),
+  conga = s("conga", drum, { gain = 0.5, pan = -0.4 }),
+  bongo = s("bongo", drum, { gain = 0.42, pan = 0.45 }),
 }
 
 -- Windows MIDI: General MIDI programs on a GS SoundFont ----------------------

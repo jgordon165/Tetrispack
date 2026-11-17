@@ -27,8 +27,19 @@ end
 
 -- The tracks of `song` as `style` arranges it: the song's own tracks, plus
 -- its bass line and drums (restyled if the engine says so), plus stabs.
+-- The engine's profile for this song: its general one with the song's own
+-- overrides on top.
+function jukebox.profile(song, style)
+  local base = profiles[style] or {}
+  local over = (base.songs or {})[song.name] or {}
+  local p = {}
+  for k, v in pairs(base) do p[k] = v end
+  for k, v in pairs(over) do p[k] = v end
+  return p
+end
+
 function jukebox.tracks(song, style)
-  local p = profiles[style] or {}
+  local p = jukebox.profile(song, style)
   local drop = p.drop or {}
   local tracks = {}
   for _, t in ipairs(song.tracks) do
@@ -42,18 +53,34 @@ function jukebox.tracks(song, style)
     local d = A.drums(song.bars, p.drums or song.drums.pattern,
                       { fill = p.fill or song.drums.fill, fillEvery = p.fillEvery or song.drums.fillEvery })
     local vols = song.drums.vols or {}
-    for _, part in ipairs({ "kick", "snare", "hat", "open", "crash", "tom" }) do
-      if #d[part] > 0 then tracks[#tracks + 1] = { inst = part, vol = vols[part] or 1, notes = d[part] } end
+    for _, part in ipairs({ "kick", "snare", "clap", "hat", "open", "crash", "tom", "conga", "bongo" }) do
+      if d[part] and #d[part] > 0 then tracks[#tracks + 1] = { inst = part, vol = vols[part] or 1, notes = d[part] } end
     end
   end
   if p.stabs then
-    tracks[#tracks + 1] = { inst = "stabs", vol = p.stabs.vol, notes = A.stabs(song.chords, p.stabs.rhythm, p.stabs.low) }
+    tracks[#tracks + 1] = { inst = p.stabs.inst or "stabs", vol = p.stabs.vol,
+                            notes = A.stabs(song.chords, p.stabs.rhythm, p.stabs.low, { tones = p.stabs.tones }) }
+  end
+  -- Swap instruments, swing the rhythm.
+  if p.voices or p.swing then
+    local out = {}
+    for i, t in ipairs(tracks) do
+      local nt = {}
+      for k, v in pairs(t) do nt[k] = v end
+      nt.inst = (p.voices or {})[t.inst] or t.inst
+      if p.swing then
+        nt.notes = A.swing(t.notes or mml.parse(t.mml), p.swing)
+        nt.mml = nil
+      end
+      out[i] = nt
+    end
+    tracks = out
   end
   return tracks
 end
 
 function jukebox.tempo(song, style)
-  local p = profiles[style] or {}
+  local p = jukebox.profile(song, style)
   return p.tempo and p.tempo(song.tempo) or song.tempo
 end
 
@@ -65,7 +92,7 @@ function jukebox.build(song, style)
   local beats = song.bars * 4
   local out = { engine = style, instruments = {}, notes = {}, length = beats * spb, soundfont = jukebox.soundfont }
   -- The SNES echo: a dotted-eighth-ish delay, up to the chip's 240 ms.
-  local echo = (profiles[style] or {}).echo or {}
+  local echo = jukebox.profile(song, style).echo or {}
   out.echo = { delay = math.min(0.24, 0.75 * spb), feedback = echo.feedback or 0.42, volume = echo.volume or 0.32 }
   local index = {}
   for _, t in ipairs(jukebox.tracks(song, style)) do
