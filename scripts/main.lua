@@ -27,7 +27,7 @@ local startRows = 0         -- Skill > Starting Rows
 local preview = false       -- Options > Piece Preview (off in the original until chosen)
 local blink = nil           -- { pass = n, t = seconds } while rows clear
 local popups = {}           -- open popups, the last one on top (ui/panel.lua)
-local sfxVolume = 1         -- Options > Sound Effects, 0-10
+local sfxVolume = 7         -- Options > Sound Effects, 0-10
 local highscores = {}       -- the top ten (game/scores.lua)
 local playerName, playerQuote = "", ""   -- the last ones entered in the Hall of Fame
 local heardPlaced = 0       -- board.placed when we last played "place"

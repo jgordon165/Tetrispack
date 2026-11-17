@@ -361,7 +361,8 @@ do
   check(board and board.title == "Tetris Experts" and board.rows[1].hot, "game: the table shows, the new entry highlighted")
   check(tp.storage_read("highscores"):find("Ann", 1, true), "game: the table is saved")
   check(tp.storage_read("settings"):find("player_name=Ann", 1, true), "game: the name is remembered")
-  check(tp.storage_read("settings"):find("sfx_volume=1\n", 1, true), "game: sound effects default to 1")
+  check(tp.storage_read("settings"):find("sfx_volume=7\n", 1, true), "game: sound effects default to 7")
+  check(tp.storage_read("settings"):find("music_volume=1\n", 1, true), "game: music defaults to 1")
   tp.sfx = sfx
 end
 

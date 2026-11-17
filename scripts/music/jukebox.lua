@@ -155,7 +155,7 @@ for _, s in ipairs(jukebox.styles) do jukebox.styleNames[#jukebox.styleNames + 1
 jukebox.choice = "By Level"
 -- Windows FM MIDI by default: the sound of the original's own era.
 jukebox.style = "Windows FM MIDI"
-jukebox.volume = 7          -- 0-10
+jukebox.volume = 1          -- 0-10 (Options > Music)
 local current = nil         -- "song/style" playing
 
 function jukebox.styleId()
