@@ -26,6 +26,8 @@
 #include <vector>
 
 #include <sys/stat.h>
+#include <sys/times.h>
+#include <ctime>
 
 #include "xsdk/display.h"
 #include "xsdk/gpu.h"
@@ -368,6 +370,19 @@ void showError(Screen& screen, x360::Canvas& c, const std::string& msg) {
 }
 
 }  // namespace
+
+// What newlib asks of the system and xsdk leaves out: clock() wants
+// times(), here the time base counted as processor time.
+extern "C" clock_t times(struct tms* t) {
+    const clock_t c = clock_t(timeBase() / (kTimeBase / CLOCKS_PER_SEC));
+    if (t) {
+        t->tms_utime = c;
+        t->tms_stime = 0;
+        t->tms_cutime = 0;
+        t->tms_cstime = 0;
+    }
+    return c;
+}
 
 int main(int, char**) {
     // xsdk's start-up has opened the log already (game:/xsdk_test.log or the debugger).
