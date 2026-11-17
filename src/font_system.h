@@ -11,7 +11,9 @@ struct SysGlyph {
     const char* rows[13];
 };
 
-constexpr SysGlyph kSystemFont[] = {
+// static const, not constexpr: the Xbox 360 host's compiler (Visual C++
+// 2010, consoles/xbox360) shares this table.
+static const SysGlyph kSystemFont[] = {
     {'0', 6, {".####.", "##..##", "##..##", "##..##", "##..##", "##..##", "##..##", "##..##", "##..##", ".####."}},
     {'1', 6, {"..##..", ".###..", "####..", "..##..", "..##..", "..##..", "..##..", "..##..", "..##..", "######"}},
     {'2', 6, {".####.", "##..##", "....##", "....##", "...##.", "..##..", ".##...", "##....", "##....", "######"}},

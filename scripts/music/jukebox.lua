@@ -17,10 +17,20 @@ if tp and tp.base_path then
   if tp.music_soundfont(path) then jukebox.soundfont = path end
 end
 
+-- Hosts that can't synthesize (the Xbox 360 build) play songs rendered
+-- ahead of time instead: tp.music_styles() lists the styles they have.
+local prerendered = nil
+if tp and tp.music_styles then
+  prerendered = {}
+  for _, id in ipairs(tp.music_styles()) do prerendered[id] = true end
+end
+
 -- The sound engines, in menu order (Windows MIDI only with a SoundFont).
 jukebox.styles = {}
 for _, id in ipairs({ "winfm", "midi", "snes", "genesis", "opl3" }) do
-  if id ~= "midi" or jukebox.soundfont then
+  if prerendered then
+    if prerendered[id] then jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name } end
+  elseif id ~= "midi" or jukebox.soundfont then
     jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
   end
 end
@@ -169,7 +179,9 @@ function jukebox.update(level, on)
   local key = want and (want .. "/" .. jukebox.styleId()) or nil
   if key == current then return end
   current = key
-  if want then tp.music_play(get(want, jukebox.styleId()), 0.8) else tp.music_stop(0.8) end
+  if not want then tp.music_stop(0.8)
+  elseif prerendered then tp.music_track(want, jukebox.styleId(), 0.8)
+  else tp.music_play(get(want, jukebox.styleId()), 0.8) end
 end
 
 function jukebox.pause(on) tp.music_pause(on) end

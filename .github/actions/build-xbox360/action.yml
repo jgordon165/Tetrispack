@@ -1,0 +1,58 @@
+name: build-xbox360
+description: build default.xex with the Xbox 360 XDK (self-hosted Windows runner) and package it with its content
+
+inputs:
+  content_artifact:
+    description: the staged content folder (consoles/xbox360/stage-content.sh), uploaded by an earlier job
+    required: false
+    default: xbox360-content
+  configuration:
+    required: false
+    default: Release
+
+runs:
+  using: "composite"
+  steps:
+    # Visual Studio 2010 and the Xbox 360 XDK have to be installed on the
+    # runner; nothing from the XDK is in the repository or the artifacts but
+    # the built default.xex.
+    - name: Check the XDK
+      shell: pwsh
+      run: |
+        if (-not $env:XEDK) { throw "XEDK is not set: install the Xbox 360 XDK on this runner" }
+        $msbuild = if ($env:XDK_MSBUILD) { $env:XDK_MSBUILD } else { "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe" }
+        if (-not (Test-Path $msbuild)) { throw "MSBuild 4.0 not found at $msbuild (set XDK_MSBUILD)" }
+        "MSBUILD=$msbuild" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        Write-Host "XDK: $env:XEDK"
+
+    # Lua's sources, at the version the PC build pins (CMakeLists.txt).
+    - name: Fetch Lua
+      shell: pwsh
+      run: |
+        if (-not (Test-Path .deps\lua-src\onelua.c)) {
+          git clone --quiet --depth 1 --branch v5.4.7 https://github.com/lua/lua.git .deps\lua-src
+        }
+
+    - name: Build default.xex
+      shell: pwsh
+      run: |
+        & $env:MSBUILD consoles\xbox360\Tetrispack360.vcxproj /m /nologo `
+          /p:Configuration=${{inputs.configuration}} "/p:Platform=Xbox 360" /p:LuaDir="$PWD\.deps\lua-src\\"
+        if ($LASTEXITCODE -ne 0) { throw "MSBuild failed ($LASTEXITCODE)" }
+
+    - name: Get the content
+      uses: actions/download-artifact@v6
+      with:
+        name: ${{inputs.content_artifact}}
+        path: stage/Tetrispack360
+
+    - name: Package
+      shell: pwsh
+      run: |
+        $xex = "consoles\xbox360\bin\${{inputs.configuration}}\default.xex"
+        if (-not (Test-Path $xex)) { throw "$xex was not built" }
+        Copy-Item $xex stage\Tetrispack360\
+        $version = git describe --tags --always
+        New-Item -ItemType Directory -Force dist | Out-Null
+        Compress-Archive -Path stage\Tetrispack360 -DestinationPath "dist\tetrispack-xbox360-$version.zip" -Force
+        Get-ChildItem dist

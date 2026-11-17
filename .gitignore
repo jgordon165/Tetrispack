@@ -46,3 +46,6 @@ dist/
 /.pvsneslib/
 /build-genesis/
 /build-snes/
+/consoles/xbox360/bin/
+/consoles/xbox360/obj/
+/stage/

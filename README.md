@@ -127,13 +127,16 @@ scoring, the blink) is written up in `docs/original.md`.
 
 ## Consoles
 
-The game also builds as console ROMs, with the rules rewritten in C
-(`consoles/common/`) because the Lua game can't run on those machines. The
-ROMs use lookalike backgrounds of our own, so they can be shared. A local
-build can bake in your TETRIS.EXE's art for your own use.
+The game also builds as console ROMs for the Genesis and the SNES, with the
+rules rewritten in C (`consoles/common/`) because the Lua game can't run on
+those machines. The ROMs use lookalike backgrounds of our own, so they can
+be shared. A local build can bake in your TETRIS.EXE's art for your own use.
 
 - **Sega Genesis / Mega Drive** (SGDK): see [consoles/genesis](consoles/genesis/README.md).
 - **Super Nintendo** (PVSnesLib): see [consoles/snes](consoles/snes/README.md).
+- **Xbox 360** (XDK, `default.xex`): the same Lua game as the PC, reading your
+  TETRIS.EXE, on a small C++03 host; built on a self-hosted runner with the
+  XDK. See [consoles/xbox360](consoles/xbox360/README.md).
 
 ## Layout
 
@@ -142,7 +145,7 @@ build can bake in your TETRIS.EXE's art for your own use.
 | `src/` | C++ host: window and drawing (`video.cpp`), input, the Lua API (`lua_api.cpp`) |
 | `src/formats/` | The NE executable and its resources (`ne.cpp`), bitmaps (`dib.cpp`) |
 | `scripts/` | The game in Lua: rules (`game/board.lua`), pieces, drawing (`game/skin.lua`), attract mode |
-| `consoles/` | Console builds: the rules in C (`common/`), Genesis (`genesis/`), SNES (`snes/`), smoke tests (`tests/`) |
+| `consoles/` | Console builds: the rules in C (`common/`), Genesis (`genesis/`), SNES (`snes/`), Xbox 360 (`xbox360/`), smoke tests (`tests/`) |
 | `tests/` | Format tests on executables built in memory, and Lua rule tests |
 | `re/`, `tools/` | Reverse-engineering workflow: identify, list and extract resources, decompile with Ghidra |
 | `docs/formats.md` | NE and resource formats as the port reads them |
@@ -165,9 +168,13 @@ Same pipelines as Meguarace:
 - **genesis** and **snes** (in CI-build): build the console ROMs (SGDK,
   PVSnesLib) and run them headless (MAME, the snes9x libretro core) to
   check that the attract demo plays and clears lines.
+- **xbox360** (in CI-build): builds `default.xex` on a self-hosted Windows
+  runner with the XDK (labels `self-hosted`, `windows`, `xdk`), once the
+  repository variable `XBOX360_RUNNER` is `true`. Its host also builds and
+  runs headless in every CI job (the `xbox360_host` test).
 - **code-analysis**: CodeQL (security-and-quality) on `master`.
 - **release-linux / release-windows / release-mac-osx / release-genesis /
-  release-snes**,
+  release-snes / release-xbox360**,
   and **release-all** to run them all: build, test, package (no game data) and upload the
   archives as workflow artifacts, plus Windows `.pdb` symbols. macOS builds
   are universal and are signed and notarized when the `PROD_MACOS_*`

@@ -16,6 +16,10 @@
 // "snes-it" writes the SNES style as Impulse Tracker modules (song<n>.it)
 // for the SNES build's SNESMOD driver, and "sfx-it [rate]" the sound effects
 // as one module of samples (sfx.it, default 8000 Hz); see consoles/snes.
+// "loop-wav <style> [rate]" writes each song for hosts that can't synthesize
+// (the Xbox 360 build) as <style>_<n>.wav: exactly one loop long, the last
+// notes' release wrapped onto the start so it loops without a seam
+// (default 32000 Hz); "sfx-wav 44100" writes the sound effects to go with it.
 
 #include "music/itwriter.h"
 #include "music/player.h"
@@ -132,7 +136,7 @@ static int writeSfxIt(int rate) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::fprintf(stderr, "usage: %s <scripts dir> [style | genesis-vgm | snes-it | sfx-wav | sfx-it] [seconds | rate]\n"
+        std::fprintf(stderr, "usage: %s <scripts dir> [style | genesis-vgm | snes-it | loop-wav <style> | sfx-wav | sfx-it] [seconds | rate]\n"
                              "(writes into the current folder)\n", argv[0]);
         return 2;
     }
@@ -140,6 +144,16 @@ int main(int argc, char** argv) {
     const std::string only = argc > 2 ? argv[2] : "";
     if (only == "sfx-wav") return writeSfx(argc > 3 ? std::atoi(argv[3]) : 13300);
     if (only == "sfx-it") return writeSfxIt(argc > 3 ? std::atoi(argv[3]) : 8000);
+    // loop-wav: the style must be one of the game's (it becomes part of the file names).
+    const bool loopWav = only == "loop-wav";
+    std::string loopStyle = "winfm";
+    if (loopWav && argc > 3) {
+        static const char* const kStyles[] = {"winfm", "midi", "snes", "genesis", "opl3"};
+        loopStyle.clear();
+        for (const char* id : kStyles) if (std::string(argv[3]) == id) loopStyle = id;
+        if (loopStyle.empty()) { std::fprintf(stderr, "no such style: %s\n", argv[3]); return 2; }
+    }
+    const int loopRate = loopWav && argc > 4 ? std::atoi(argv[4]) : 32000;
     const double seconds = argc > 3 ? std::atof(argv[3]) : 0;
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
@@ -195,7 +209,8 @@ int main(int argc, char** argv) {
         const std::string style = lua_tostring(L, -1);
         lua_pop(L, 1);
         const bool vgmOut = only == "genesis-vgm", itOut = only == "snes-it";
-        if (!only.empty() && only != style && !(vgmOut && style == "genesis") && !(itOut && style == "snes")) {
+        if (loopWav ? style != loopStyle
+                    : (!only.empty() && only != style && !(vgmOut && style == "genesis") && !(itOut && style == "snes"))) {
             lua_pop(L, 1);
             continue;
         }
@@ -206,6 +221,23 @@ int main(int argc, char** argv) {
         auto song = music::songFromLua(L, -1);
         lua_pop(L, 2);
 
+        if (loopWav) {
+            music::Player synth;
+            synth.setVolume(1.0f);
+            synth.play(song, 0);
+            const size_t loop = size_t(song->length * loopRate), tail = size_t(2.0 * loopRate);
+            std::vector<int16_t> pcm((loop + tail) * 2, 0);
+            synth.render(pcm.data(), int(pcm.size() / 2), loopRate);
+            for (size_t k = 0; k < tail * 2 && k < loop * 2; ++k) {
+                const int v = pcm[k] + pcm[loop * 2 + k];
+                pcm[k] = int16_t(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+            }
+            pcm.resize(loop * 2);
+            const std::string out = loopStyle + "_" + name.substr(0, name.find('_')) + ".wav";
+            if (!writeWav(out, pcm, loopRate, 2)) return 1;
+            std::printf("%s: %.1f s\n", out.c_str(), song->length);
+            continue;
+        }
         if (itOut) {
             music::ItSettings st;
             st.title = name.substr(name.find('_') + 1);
