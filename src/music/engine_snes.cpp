@@ -119,8 +119,8 @@ public:
             v.t += dt;
             double step = v.step;
             if (v.glideRatio != 1.0f) {   // glide in log-frequency toward the note
-                const float r = std::log(v.glideRatio) * (1.0f - std::min(1.0f, v.glideRate * 6.0f));
-                v.glideRatio = std::fabs(r) < 0.0005f ? 1.0f : std::exp(r);
+                const float logRatio = std::log(v.glideRatio) * (1.0f - std::min(1.0f, v.glideRate * 6.0f));
+                v.glideRatio = std::fabs(logRatio) < 0.0005f ? 1.0f : std::exp(logRatio);
                 step *= v.glideRatio;
             }
             if (v.vibrato > 0 && v.t > 0.15f)   // delayed vibrato, as composers liked
