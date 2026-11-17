@@ -231,6 +231,12 @@ do
   end
   check(swung, "snes Samovar swings its off-beats")
   check(insts(jukebox.tracks(sam, "genesis")).accordion ~= nil, "other engines keep the accordion")
+  -- Windows FM MIDI: the default; a General MIDI band on the OPL3, no chip arps.
+  check(jukebox.style == "Windows FM MIDI", "Windows FM MIDI is the default style")
+  local wf = jukebox.build(koro, "winfm")
+  check(wf.engine == "opl3", "Windows FM MIDI plays on the OPL3")
+  local wt = insts(jukebox.tracks(koro, "winfm"))
+  check(wt.comp and not wt.arp and wt.clarinet_lead, "Windows FM MIDI: piano chords, no arpeggios, clarinet lead")
   check(jukebox.soundfont ~= nil, "the GS SoundFont loads (Windows MIDI)")
   local midi = jukebox.build(koro, "midi")
   check(midi.soundfont == jukebox.soundfont and #midi.instruments > 5, "midi build names the SoundFont")

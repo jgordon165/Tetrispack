@@ -19,7 +19,7 @@ end
 
 -- The sound engines, in menu order (Windows MIDI only with a SoundFont).
 jukebox.styles = {}
-for _, id in ipairs({ "midi", "snes", "genesis", "opl3" }) do
+for _, id in ipairs({ "winfm", "midi", "snes", "genesis", "opl3" }) do
   if id ~= "midi" or jukebox.soundfont then
     jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
   end
@@ -90,7 +90,8 @@ function jukebox.build(song, style)
   local set = instruments[style] or error("no such music style " .. tostring(style))
   local spb = 60 / jukebox.tempo(song, style)
   local beats = song.bars * 4
-  local out = { engine = style, instruments = {}, notes = {}, length = beats * spb, soundfont = jukebox.soundfont }
+  local out = { engine = jukebox.profile(song, style).engine or style, instruments = {}, notes = {},
+                length = beats * spb, soundfont = jukebox.soundfont }
   -- The SNES echo: a dotted-eighth-ish delay, up to the chip's 240 ms.
   local echo = jukebox.profile(song, style).echo or {}
   out.echo = { delay = math.min(0.24, 0.75 * spb), feedback = echo.feedback or 0.42, volume = echo.volume or 0.32 }
@@ -130,8 +131,8 @@ jukebox.styleNames = {}
 for _, s in ipairs(jukebox.styles) do jukebox.styleNames[#jukebox.styleNames + 1] = s.name end
 
 jukebox.choice = "By Level"
--- On Windows, Windows MIDI by default (when the SoundFont is there).
-jukebox.style = (jukebox.soundfont and tp.platform and tp.platform() == "Windows") and "Windows MIDI" or "Super NES"
+-- Windows FM MIDI by default: the sound of the original's own era.
+jukebox.style = "Windows FM MIDI"
 jukebox.volume = 7          -- 0-10
 local current = nil         -- "song/style" playing
 

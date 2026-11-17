@@ -5,10 +5,42 @@
 -- synth bass jumping octaves, power-chord stabs on the off-beats, a rock
 -- beat with open hats, quick fills - played on bright saw and pulse
 -- samples with the echo. The Mega Drive and the Sound Blaster keep each
--- song's own bass line and beat, as does Windows MIDI.
+-- song's own bass line and beat, as do Windows MIDI and Windows FM MIDI.
 local function clamp(x, lo, hi) return math.max(lo, math.min(hi, x)) end
 
 return {
+  -- Windows FM MIDI: the songs as Windows 3.1/95's own .MID files sounded
+  -- through a Sound Blaster 16's OPL3 - a General MIDI band (melody,
+  -- strings, piano chords, fingered bass, a standard kit), dry FM, hard
+  -- panned. No chip arpeggios: piano chords on a pop rhythm instead.
+  winfm = {
+    name = "Windows FM MIDI",
+    engine = "opl3",
+    drop = { arp = true },
+    stabs = { rhythm = "x..x..x...x..x..", low = 55, vol = 0.6, tones = "triad", inst = "comp" },
+    songs = {
+      -- Folk tune on clarinet, strings answering, banjo in the second half.
+      Korobeiniki = { voices = { lead = "clarinet_lead" } },
+      -- A bright demo-disk tune: synth brass lead, brass section harmony,
+      -- electric piano, nylon guitar comping.
+      ["Program Manager"] = {
+        voices = { lead = "brass", harmony = "brass_h" },
+        stabs = { rhythm = "x.x.x.x.x.x.x.x.", low = 55, vol = 0.5, tones = "triad", inst = "guitar" },
+      },
+      -- Accordion and banjo dance; piano oom-pah chords.
+      Samovar = { stabs = { rhythm = "....x.......x...", low = 55, vol = 0.6, tones = "triad", inst = "comp" } },
+      -- A late-night ballad: vibraphone melody, flute answering, strings.
+      ["Midnight Desktop"] = {
+        voices = { bells = "vibes", lead = "flute" },
+        stabs = { rhythm = "x.......x.......", low = 55, vol = 0.45, tones = "triad", inst = "comp" },
+      },
+      -- Rock: distorted guitar lead, synth bass, brass stabs.
+      ["Steppe Express"] = {
+        voices = { lead = "dist", harmony = "brass_h", bass = "synbass" },
+        stabs = { rhythm = "x..x..x...x..x..", low = 50, vol = 0.6, tones = "triad", inst = "brass" },
+      },
+    },
+  },
   snes = {
     name = "Super NES",
     tempo = function(t) return math.floor(clamp(t * 1.06, 124, 176) + 0.5) end,

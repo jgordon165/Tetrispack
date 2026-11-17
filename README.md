@@ -68,9 +68,16 @@ the background: *Korobeiniki* (the public-domain folk song behind Tetris,
 arranged for the port), *Program Manager*, *Samovar*, *Midnight Desktop* and
 *Steppe Express* (originals). Each is arranged game-style: the melody with a
 harmony line, chip arpeggios, a moving bass line, drums with fills and
-crashes. Options > Music Style plays them as a console - or a 1990s PC - would:
+crashes. Options > Music Style plays them as a 1990s PC - or a console - would:
 
-- **Windows MIDI** (the default on Windows): General MIDI on a GS
+- **Windows FM MIDI** (the default): the songs as Windows 3.1/95/98's own
+  .MID files sounded on a Sound Blaster 16 - a General MIDI band (clarinet,
+  synth brass, accordion, vibraphone or distorted-guitar leads, strings,
+  piano chords, fingered bass, a standard kit) as dry two-operator FM on
+  the OPL3, panned hard left, centre and right. The FM patches are the
+  port's own, in the spirit of the SB16 driver's bank.
+
+- **Windows MIDI**: General MIDI on a GS
   SoundFont, the Roland Sound Canvas sound of Windows' MIDI playback -
   square lead, clarinet, fingered bass, strings, vibraphone, the GS drum
   kit, room reverb. The build downloads S. Christian Collins' GeneralUser
@@ -89,7 +96,7 @@ melodies are text in `scripts/music/songs.lua` (a small MML,
 `scripts/music/mml.lua`), the accompaniment is generated from each song's
 chords (`scripts/music/arrange.lua`), and every engine's instruments are in
 `scripts/music/instruments.lua`. To hear them outside the game,
-`tetrispack_render_music scripts out/ [midi|snes|genesis|opl3]` writes a .wav
+`tetrispack_render_music scripts out/ [winfm|midi|snes|genesis|opl3]` writes a .wav
 per song.
 
 **Sound effects.** A short mechanical "chk" with a small high bell when a

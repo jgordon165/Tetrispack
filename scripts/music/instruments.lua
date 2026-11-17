@@ -208,4 +208,100 @@ I.midi = {
   tom = kit(-1, { gain = 0.8 }),                        -- the fills' notes are GM tom keys
 }
 
+-- Windows FM MIDI: General MIDI instruments as two-operator FM patches
+-- for the OPL3, in the character of a 1990s Sound Blaster 16 FM driver
+-- playing Windows' .MID files - dry, a little buzzy, panned hard left,
+-- centre or right. The port's own patches (the drivers' banks are theirs).
+-- Named after the General MIDI program each one stands in for.
+local function fmgm(fb, mod, car, extra)
+  local t = { kind = "opl", opl = { feedback = fb, mod = mod, car = car } }
+  for k, v in pairs(extra or {}) do t[k] = v end
+  return t
+end
+local W = {
+  -- 0 Acoustic Grand Piano: a bright hammer that fades.
+  piano = fmgm(3, { mult = 1, tl = 27, ar = 15, dr = 3, sl = 5, rr = 4, ksl = 1, sustain = 0 },
+                  { mult = 1, tl = 0, ar = 15, dr = 2, sl = 9, rr = 5, ksr = 1, sustain = 0 }),
+  -- 4 Electric Piano 1: the bell-like tine.
+  epiano = fmgm(1, { mult = 1, tl = 34, ar = 15, dr = 4, sl = 15, rr = 6, sustain = 0 },
+                   { mult = 1, tl = 2, ar = 15, dr = 3, sl = 8, rr = 5, sustain = 0 }),
+  -- 11 Vibraphone, 9 Glockenspiel.
+  vibes = fmgm(0, { mult = 4, tl = 36, ar = 15, dr = 5, sl = 15, rr = 5, am = 1 },
+                  { mult = 1, tl = 2, ar = 15, dr = 4, sl = 9, rr = 4, am = 1, sustain = 0 }),
+  glock = fmgm(0, { mult = 7, tl = 30, ar = 15, dr = 6, sl = 12, rr = 6, sustain = 0 },
+                  { mult = 4, tl = 4, ar = 15, dr = 5, sl = 12, rr = 5, sustain = 0 }),
+  -- 21 Accordion: two operators heard, with tremolo.
+  accordion = fmgm(3, { mult = 2, tl = 16, ar = 13, dr = 1, sl = 1, rr = 7, am = 1 },
+                      { mult = 1, tl = 6, ar = 13, dr = 1, sl = 1, rr = 7, am = 1 }, { additive = 1 }),
+  -- 24 Nylon Guitar, 29 Overdriven Guitar, 105 Banjo.
+  guitar = fmgm(4, { mult = 3, tl = 30, ar = 15, dr = 5, sl = 10, rr = 6, sustain = 0 },
+                   { mult = 1, tl = 3, ar = 15, dr = 4, sl = 10, rr = 6, sustain = 0 }),
+  dist = fmgm(7, { mult = 1, tl = 16, ar = 15, dr = 2, sl = 3, rr = 6 },
+                 { mult = 1, tl = 0, ar = 15, dr = 2, sl = 3, rr = 6, ws = 1 }),
+  banjo = fmgm(5, { mult = 4, tl = 32, ar = 15, dr = 7, sl = 13, rr = 6, sustain = 0 },
+                  { mult = 1, tl = 3, ar = 15, dr = 6, sl = 12, rr = 6, sustain = 0 }),
+  -- 33 Electric Bass (finger), 38 Synth Bass 1.
+  bass = fmgm(4, { mult = 0, tl = 28, ar = 15, dr = 5, sl = 6, rr = 8 },
+                 { mult = 1, tl = 0, ar = 15, dr = 3, sl = 5, rr = 8 }),
+  synbass = fmgm(6, { mult = 1, tl = 22, ar = 15, dr = 7, sl = 8, rr = 8 },
+                    { mult = 1, tl = 0, ar = 15, dr = 4, sl = 5, rr = 8 }),
+  -- 48 String Ensemble: the slow, buzzy FM strings.
+  strings = fmgm(2, { mult = 1, tl = 30, ar = 6, dr = 1, sl = 2, rr = 5, vib = 1 },
+                    { mult = 1, tl = 6, ar = 6, dr = 1, sl = 2, rr = 5, vib = 1, ws = 1 }),
+  -- 61 Brass Section, 62 Synth Brass.
+  brass = fmgm(5, { mult = 1, tl = 22, ar = 11, dr = 2, sl = 2, rr = 6, vib = 1 },
+                  { mult = 1, tl = 3, ar = 12, dr = 2, sl = 2, rr = 6, vib = 1 }),
+  synbrass = fmgm(6, { mult = 1, tl = 20, ar = 13, dr = 3, sl = 3, rr = 6 },
+                     { mult = 1, tl = 2, ar = 14, dr = 2, sl = 3, rr = 6 }),
+  -- 71 Clarinet (hollow: odd harmonics), 73 Flute (breathy sine).
+  clarinet = fmgm(4, { mult = 2, tl = 26, ar = 13, dr = 2, sl = 2, rr = 6, vib = 1 },
+                     { mult = 1, tl = 2, ar = 13, dr = 1, sl = 1, rr = 6, vib = 1 }),
+  flute = fmgm(2, { mult = 1, tl = 40, ar = 10, dr = 2, sl = 2, rr = 6, vib = 1 },
+                  { mult = 1, tl = 4, ar = 11, dr = 1, sl = 1, rr = 6, vib = 1 }),
+  -- 80 Square Lead.
+  square = fmgm(6, { mult = 1, tl = 26, ar = 15, dr = 2, sl = 2, rr = 6 },
+                   { mult = 1, tl = 4, ar = 15, dr = 2, sl = 2, rr = 6, ws = 6 }),
+  -- Drums, as the FM drivers made them: fixed-pitch percussive patches.
+  kick = fmgm(0, { mult = 0, tl = 10, ar = 15, dr = 9, sl = 15, rr = 15 },
+                 { mult = 1, tl = 0, ar = 15, dr = 7, sl = 15, rr = 15, sustain = 0 }, { key = 28 }),
+  snare = fmgm(7, { mult = 15, tl = 0, ar = 15, dr = 8, sl = 15, rr = 15 },
+                  { mult = 1, tl = 4, ar = 15, dr = 7, sl = 15, rr = 15, sustain = 0 }, { key = 62 }),
+  hat = fmgm(7, { mult = 15, tl = 0, ar = 15, dr = 10, sl = 15, rr = 15 },
+                { mult = 15, tl = 12, ar = 15, dr = 10, sl = 15, rr = 15, sustain = 0 }, { key = 96, pan = 1 }),
+  open = fmgm(7, { mult = 15, tl = 0, ar = 15, dr = 7, sl = 15, rr = 7 },
+                 { mult = 15, tl = 12, ar = 15, dr = 7, sl = 15, rr = 7, sustain = 0 }, { key = 96, pan = 1 }),
+  crash = fmgm(7, { mult = 15, tl = 0, ar = 15, dr = 4, sl = 15, rr = 5 },
+                  { mult = 13, tl = 8, ar = 15, dr = 4, sl = 15, rr = 5, sustain = 0 }, { key = 90, pan = -1 }),
+  tom = fmgm(0, { mult = 0, tl = 20, ar = 15, dr = 8, sl = 15, rr = 15 },
+                { mult = 1, tl = 0, ar = 15, dr = 6, sl = 15, rr = 15, sustain = 0 }),
+}
+-- The roles the songs use, mapped onto that bank (songs can recast them
+-- in music/styles.lua), with the hard panning of an OPL3 MIDI mix.
+local function cast(name, extra) local t = with(W[name], extra or {}) return t end
+I.winfm = {
+  lead = cast("clarinet", { gain = 0.95 }),
+  harmony = cast("strings", { gain = 0.55, pan = -1 }),
+  comp = cast("piano", { gain = 0.5, pan = 1 }),
+  arp = cast("piano", { gain = 0.45, pan = 1 }),
+  epiano = cast("epiano", { gain = 0.55, pan = 1 }),
+  bass = cast("bass", { gain = 0.8 }),
+  pad = cast("strings", { gain = 0.5, pan = -1 }),
+  accordion = cast("accordion", { gain = 0.9 }),
+  bells = cast("glock", { gain = 0.5, pan = 1 }),
+  pluck = cast("banjo", { gain = 0.6, pan = -1 }),
+  kick = W.kick, snare = with(W.snare, { gain = 0.85 }), hat = with(W.hat, { gain = 0.7 }),
+  open = with(W.open, { gain = 0.6 }), crash = with(W.crash, { gain = 0.6 }), tom = W.tom,
+  -- Extra casts for particular songs.
+  brass = cast("synbrass", { gain = 0.9 }),
+  brass_h = cast("brass", { gain = 0.55, pan = -1 }),
+  flute = cast("flute", { gain = 0.9 }),
+  vibes = cast("vibes", { gain = 1.0 }),
+  guitar = cast("guitar", { gain = 0.6, pan = 1 }),
+  dist = cast("dist", { gain = 1.0 }),
+  square = cast("square", { gain = 0.8 }),
+  synbass = cast("synbass", { gain = 0.85 }),
+  piano_lead = cast("piano", { gain = 0.85 }),
+  clarinet_lead = cast("clarinet", { gain = 0.95 }),
+}
+
 return I
