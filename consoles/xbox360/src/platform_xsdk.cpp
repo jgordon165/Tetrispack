@@ -21,7 +21,6 @@
 
 #include <cstdio>
 #include <cstring>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -171,11 +170,17 @@ extern "C" void tetrispack_audio_callback(const uint32_t* context) {
     XAudioSubmitRenderDriverFrame(d, driverFrame);
 }
 
+// The mixer's lock, for the feeder thread and the game's.
+struct CriticalSection : x360::Audio::Lock {
+    CriticalSection() { RtlInitializeCriticalSection(&cs); }
+    void lock() { RtlEnterCriticalSection(&cs); }
+    void unlock() { RtlLeaveCriticalSection(&cs); }
+    RTL_CRITICAL_SECTION cs;
+};
+
 class Xbox : public x360::Platform {
 public:
-    Xbox() : mixer_(kOutRate), feeder_(0), running_(false), pendingFade_(0) {
-        RtlInitializeCriticalSection(&lock_);
-    }
+    Xbox() : audio_(*this, kOutRate, &lock_), feeder_(0), running_(false) {}
 
     bool initAudio() {
         driverFrame = (float*)MmAllocatePhysicalMemoryEx(0, kDriverFrames * kDriverChannels * sizeof(float),
@@ -201,15 +206,10 @@ public:
         return true;
     }
 
-    // Once a frame: a pending song starts once the last has faded out (its
-    // file is read here, not on the feeder).
+    // Once a frame: a waiting song starts once the last has faded out.
     void tick() {
         if (!feeder_) fill();
-        if (pendingPath_.empty()) return;
-        lock();
-        const bool free = !mixer_.hasMusic();
-        unlock();
-        if (free) startPending();
+        audio_.tick();
     }
 
     // Platform
@@ -224,64 +224,17 @@ public:
     uint32_t ticks() { return uint32_t(timeBase() / (kTimeBase / 1000)); }
     void log(const std::string& s) { xsdk_log_write("%s", s.c_str()); }
     bool hasAudio() { return __atomic_load_n(&driver, __ATOMIC_ACQUIRE) != 0; }
-
-    void playMusic(const std::string& path, double fade) {
-        if (!hasAudio() || path == playingPath_) return;
-        pendingPath_ = path;
-        pendingFade_ = fade;
-        lock();
-        const bool playing = mixer_.hasMusic();
-        if (playing) mixer_.fadeOutMusic(fade > 0.05 ? fade : 0.05);
-        unlock();
-        if (!playing) startPending();
-    }
-    void stopMusic(double fade) {
-        pendingPath_.clear();
-        playingPath_.clear();
-        lock();
-        mixer_.fadeOutMusic(fade);
-        unlock();
-    }
-    void pauseMusic(bool on) { lock(); mixer_.pauseMusic(on); unlock(); }
-    void setMusicVolume(float v) { lock(); mixer_.setMusicVolume(v); unlock(); }
-    double musicPosition() {
-        lock();
-        const double p = mixer_.musicPosition();
-        unlock();
-        return p;
-    }
+    void playMusic(const std::string& path, double fade) { if (hasAudio()) audio_.playMusic(path, fade); }
+    void stopMusic(double fade) { audio_.stopMusic(fade); }
+    void pauseMusic(bool on) { audio_.pauseMusic(on); }
+    void setMusicVolume(float v) { audio_.setMusicVolume(v); }
+    double musicPosition() { return audio_.musicPosition(); }
     void playSfx(const std::string& name, float gain) {
-        if (!hasAudio()) return;
-        std::map<std::string, x360::Sound>::iterator it = sfx_.find(name);
-        if (it == sfx_.end()) {   // read on first use, kept from then on
-            std::vector<uint8_t> f;
-            x360::Sound s;
-            if (readWhole(root() + "sfx/" + name + ".wav", f)) x360::decodeWave(f, s);
-            it = sfx_.insert(std::make_pair(name, s)).first;
-        }
-        lock();
-        mixer_.playSfx(&it->second, gain);
-        unlock();
+        if (hasAudio()) audio_.playSfx(root() + "sfx/" + name + ".wav", gain);
     }
-    void setSfxVolume(float v) { lock(); mixer_.setSfxVolume(v); unlock(); }
+    void setSfxVolume(float v) { audio_.setSfxVolume(v); }
 
 private:
-    void lock() { RtlEnterCriticalSection(&lock_); }
-    void unlock() { RtlLeaveCriticalSection(&lock_); }
-
-    void startPending() {
-        const std::string path = pendingPath_;
-        pendingPath_.clear();
-        playingPath_ = path;
-        std::vector<uint8_t> f;
-        x360::Sound s;
-        if (!readWhole(path, f) || !x360::decodeWave(f, s)) return;   // not rendered for this build: silence
-        f.clear();
-        lock();
-        mixer_.setMusic(s, pendingFade_ > 0.05 ? pendingFade_ : 0);
-        unlock();
-    }
-
     // Tops the ring up to kFillTo frames ahead of the driver.
     void fill() {
         int16_t chunk[512 * 2];
@@ -292,9 +245,7 @@ private:
             if (queued >= kFillTo) return;
             uint32_t n = kFillTo - queued;
             if (n > 512) n = 512;
-            lock();
-            mixer_.mix(chunk, int(n));
-            unlock();
+            audio_.mix(chunk, int(n));
             for (uint32_t i = 0; i < n; ++i) {
                 int16_t* d = &ring[((w + i) % kRingFrames) * 2];
                 d[0] = chunk[2 * i];
@@ -313,13 +264,10 @@ private:
         return 0;
     }
 
-    RTL_CRITICAL_SECTION lock_;
-    x360::Mixer mixer_;
+    CriticalSection lock_;
+    x360::Audio audio_;
     HANDLE feeder_;
     volatile bool running_;
-    std::map<std::string, x360::Sound> sfx_;
-    std::string playingPath_, pendingPath_;
-    double pendingFade_;
 };
 
 // ---- the pad ------------------------------------------------------------------
