@@ -363,7 +363,40 @@ do
   check(tp.storage_read("settings"):find("player_name=Ann", 1, true), "game: the name is remembered")
   check(tp.storage_read("settings"):find("sfx_volume=7\n", 1, true), "game: sound effects default to 7")
   check(tp.storage_read("settings"):find("music_volume=1\n", 1, true), "game: music defaults to 1")
+  check(tp.storage_read("settings"):find("bg_gradient=false\n", 1, true), "game: the background gradient starts off")
   tp.sfx = sfx
+end
+
+-- Options > Background Gradient: black, clear at the top, darkest at the
+-- bottom, over the background only (drawn with it, before the rest).
+do
+  local skin = require("game.skin")
+  local fills, fill = {}, tp.fill
+  tp.fill = function(x, y, w, h, r, g, b, a) fills[#fills + 1] = { x = x, y = y, w = w, h = h, a = a or 255, rgb = r + g + b } end
+  skin.shade(640, 440)
+  tp.fill = fill
+  local first, last, rising, black = fills[1], fills[#fills], true, true
+  for i, f in ipairs(fills) do
+    if i > 1 and f.a < fills[i - 1].a then rising = false end
+    if f.rgb ~= 0 or f.w ~= 640 or f.h ~= 1 then black = false end
+  end
+  check(first.y > 0 and first.a <= 2, "gradient: transparent at the top")
+  check(last.y == 439 and last.a == skin.gradient_max, "gradient: darkest on the bottom row")
+  check(rising and black, "gradient: black rows, darker going down")
+  local mid
+  for _, f in ipairs(fills) do if f.y == 220 then mid = f.a end end
+  check(mid and mid < skin.gradient_max / 2, "gradient: the top half stays mostly clear")
+
+  local drew, bg = false, skin.shade
+  skin.shade = function(...) drew = true; return bg(...) end
+  skin.gradient = true
+  game.draw()
+  skin.gradient = false
+  local off = drew
+  drew = false
+  game.draw()
+  skin.shade = bg
+  check(off and not drew, "gradient: drawn only when the option is on")
 end
 
 -- With data: the executable's resources are listed, backgrounds load.
