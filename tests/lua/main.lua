@@ -367,25 +367,29 @@ do
   tp.sfx = sfx
 end
 
--- Options > Background Gradient: black, clear at the top, darkest at the
--- bottom, over the background only (drawn with it, before the rest).
+-- Options > Background Gradient: lit at the top, clear in the middle,
+-- dark at the bottom, over the background only (drawn before the rest).
 do
   local skin = require("game.skin")
   local fills, fill = {}, tp.fill
-  tp.fill = function(x, y, w, h, r, g, b, a) fills[#fills + 1] = { x = x, y = y, w = w, h = h, a = a or 255, rgb = r + g + b } end
+  tp.fill = function(x, y, w, h, r, g, b, a) fills[#fills + 1] = { x = x, y = y, w = w, h = h, a = a or 255, r = r, g = g, b = b } end
   skin.shade(640, 440)
   tp.fill = fill
-  local first, last, rising, black = fills[1], fills[#fills], true, true
-  for i, f in ipairs(fills) do
-    if i > 1 and f.a < fills[i - 1].a then rising = false end
-    if f.rgb ~= 0 or f.w ~= 640 or f.h ~= 1 then black = false end
+  local light, dark, rows = {}, {}, {}
+  local whole = true
+  for _, f in ipairs(fills) do
+    rows[f.y] = f
+    if f.w ~= 640 or f.h ~= 1 or f.r ~= f.g or f.g ~= f.b then whole = false end
+    if f.r == 255 then light[#light + 1] = f elseif f.r == 0 then dark[#dark + 1] = f else whole = false end
   end
-  check(first.y > 0 and first.a <= 2, "gradient: transparent at the top")
-  check(last.y == 439 and last.a == skin.gradient_max, "gradient: darkest on the bottom row")
-  check(rising and black, "gradient: black rows, darker going down")
-  local mid
-  for _, f in ipairs(fills) do if f.y == 220 then mid = f.a end end
-  check(mid and mid < skin.gradient_max / 2, "gradient: the top half stays mostly clear")
+  check(whole, "gradient: whole rows of white or black")
+  check(rows[0] and rows[0].r == 255 and rows[0].a == skin.gradient_light, "gradient: lightest on the top row")
+  check(rows[439] and rows[439].r == 0 and rows[439].a == skin.gradient_max, "gradient: darkest on the bottom row")
+  check(rows[200] == nil and rows[215] == nil, "gradient: the middle is clear")
+  local steady = true
+  for i = 2, #light do if light[i].a > light[i - 1].a or light[i].y ~= light[i - 1].y + 1 then steady = false end end
+  for i = 2, #dark do if dark[i].a < dark[i - 1].a then steady = false end end
+  check(steady and light[#light].y < 154 and dark[1].y >= 220, "gradient: light fades going down, dark grows")
 
   local drew, bg = false, skin.shade
   skin.shade = function(...) drew = true; return bg(...) end
