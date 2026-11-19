@@ -87,16 +87,30 @@ function skin.sunken(x, y, w, h)
 end
 
 -- Options > Background Gradient: a modern touch over the background only
--- (drawn before the panel and the well). Black, fully see-through at the
--- top, darkening towards the bottom; eased so the top half stays clear.
+-- (drawn before the panel and the well), in three bands. The top is lit:
+-- white, strongest on the top row, fading out by skin.gradient_clear. The
+-- middle, down to skin.gradient_dark, shows the background as it is. The
+-- bottom darkens to black on the last row. Both fades are eased (t^2), so
+-- they stay soft near the clear band.
 skin.gradient = false
-skin.gradient_max = 224         -- opacity at the bottom row, of 255
+skin.gradient_light = 96        -- white's opacity on the top row, of 255
+skin.gradient_max = 224         -- black's opacity on the bottom row, of 255
+skin.gradient_clear = 0.35      -- the light fades out by here (fraction of the height)
+skin.gradient_dark = 0.5        -- the dark starts here
 
 function skin.shade(w, h)
+  local clear, dark = skin.gradient_clear * h, skin.gradient_dark * h
   for y = 0, h - 1 do
-    local t = (y + 1) / h
-    local a = math.floor(skin.gradient_max * t * t + 0.5)
-    if a > 0 then tp.fill(0, y, w, 1, 0, 0, 0, a) end
+    local c = y + 0.5   -- the row's centre
+    if c < clear then
+      local t = 1 - y / clear
+      local a = math.floor(skin.gradient_light * t * t + 0.5)
+      if a > 0 then tp.fill(0, y, w, 1, 255, 255, 255, a) end
+    elseif c > dark then
+      local t = (y + 1 - dark) / (h - dark)
+      local a = math.floor(skin.gradient_max * t * t + 0.5)
+      if a > 0 then tp.fill(0, y, w, 1, 0, 0, 0, a) end
+    end
   end
 end
 

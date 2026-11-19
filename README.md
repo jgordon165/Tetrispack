@@ -68,8 +68,8 @@ Resume, High Scores, Exit. Skill: Starting Level, Starting Rows. Options:
 Piece Preview, Music, Music Style, Sound Effects (7 to start with), Music
 Volume (1 to start with; Players is grayed out until the port has
 two-player). Enhanced, new features beyond the original's, all off until
-chosen: Background Gradient (the background darkens towards the bottom,
-under the panel and playfield). Help: How to Play, Controls, About. Up / Down (or the mouse wheel) choose,
+chosen: Background Gradient (the background is lit at the top, clear in
+the middle and dark at the bottom, under the panel and playfield). Help: How to Play, Controls, About. Up / Down (or the mouse wheel) choose,
 Left / Right change a setting, Enter (or A) picks, Esc (or B) goes back.
 Messages (Exit?, Game Over) use the same popup. The options are saved as
 you change them and come back next time.
