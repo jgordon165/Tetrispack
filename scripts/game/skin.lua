@@ -86,9 +86,23 @@ function skin.sunken(x, y, w, h)
   fill(x + 1, y + 1, w - 2, h - 2, skin.gray)
 end
 
+-- Options > Background Gradient: a modern touch over the background only
+-- (drawn before the panel and the well). Black, fully see-through at the
+-- top, darkening towards the bottom; eased so the top half stays clear.
+skin.gradient = false
+skin.gradient_max = 224         -- opacity at the bottom row, of 255
+
+function skin.shade(w, h)
+  for y = 0, h - 1 do
+    local t = (y + 1) / h
+    local a = math.floor(skin.gradient_max * t * t + 0.5)
+    if a > 0 then tp.fill(0, y, w, 1, 0, 0, 0, a) end
+  end
+end
+
 -- Level backgrounds: BITMAP n for level n, tiled over the window.
 local bg = {}
-function skin.background(level, w, h)
+local function tiles(level, w, h)
   if bg[level] == nil then
     bg[level] = false
     if tp.has_data() then
@@ -105,6 +119,11 @@ function skin.background(level, w, h)
   for y = 0, h - 1, b.h do
     for x = 0, w - 1, b.w do tp.draw(b.handle, 0, 0, b.w, b.h, x, y) end
   end
+end
+
+function skin.background(level, w, h)
+  tiles(level, w, h)
+  if skin.gradient then skin.shade(w, h) end
 end
 
 return skin

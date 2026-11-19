@@ -75,6 +75,7 @@ local function saveSettings()
   settings.save({
     start_level = startLevel, start_rows = startRows, preview = preview, sfx_volume = sfxVolume,
     music = jukebox.choice, music_style = jukebox.style, music_volume = jukebox.volume,
+    bg_gradient = skin.gradient,
     player_name = playerName, player_quote = playerQuote,
   })
 end
@@ -89,6 +90,7 @@ local function loadSettings()
   startLevel = oneOf(t.start_level, { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }) or startLevel
   startRows = oneOf(t.start_rows, { 0, 1, 3, 5, 7, 9 }) or startRows
   if type(t.preview) == "boolean" then preview = t.preview end
+  if type(t.bg_gradient) == "boolean" then skin.gradient = t.bg_gradient end
   sfxVolume = oneOf(t.sfx_volume, tenth) or sfxVolume
   jukebox.choice = oneOf(t.music, jukebox.choices) or jukebox.choice
   jukebox.style = oneOf(t.music_style, jukebox.styleNames) or jukebox.style
@@ -222,6 +224,11 @@ local function settingsPanel()
     { label = "Music Volume", values = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
       get = function() return jukebox.volume end,
       set = function(v) jukebox.volume = v; saveSettings() end },
+    -- New looks and features, beyond the original's. Off until chosen.
+    { header = "ENHANCED" },
+    { label = "Background Gradient", values = { "Off", "On" },
+      get = function() return skin.gradient and "On" or "Off" end,
+      set = function(v) skin.gradient = (v == "On"); saveSettings() end },
     { header = "HELP" },
     { label = "How to Play", action = function()
         message("How to Play", {
