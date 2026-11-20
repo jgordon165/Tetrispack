@@ -1,0 +1,3 @@
+// The Windows build's icon (tools/make_icon.py draws it): the executable's
+// in Explorer and on shortcuts, and the window's (SDL takes it by its id).
+1 ICON "../assets/tetrispack.ico"

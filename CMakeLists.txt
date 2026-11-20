@@ -152,6 +152,9 @@ add_executable(tetrispack
     src/lua_api.cpp)
 target_link_libraries(tetrispack PRIVATE tetrispack_formats tetrispack_music SDL2::SDL2-static SDL2::SDL2main lua_static)
 tetrispack_warnings(tetrispack)
+if(WIN32)
+    target_sources(tetrispack PRIVATE src/tetrispack.rc)   # the icon, assets/tetrispack.ico
+endif()
 if(MSVC)
     # Debugging symbols for Release too (uploaded separately by the release workflow).
     target_compile_options(tetrispack PRIVATE $<$<CONFIG:Release>:/Zi>)

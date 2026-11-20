@@ -1,5 +1,7 @@
 # Tetrispack
 
+<img src="assets/tetrispack.png" width="96" align="right" alt="Tetrispack's icon">
+
 [![CI-build](https://github.com/jgordon165/Tetrispack/actions/workflows/ci-build.yml/badge.svg)](https://github.com/jgordon165/Tetrispack/actions/workflows/ci-build.yml)
 [![code-analysis](https://github.com/jgordon165/Tetrispack/actions/workflows/code-analysis.yml/badge.svg)](https://github.com/jgordon165/Tetrispack/actions/workflows/code-analysis.yml)
 
@@ -167,6 +169,7 @@ be shared. A local build can bake in your TETRIS.EXE's art for your own use.
 | `consoles/` | Console builds: the rules in C (`common/`), Genesis (`genesis/`), SNES (`snes/`), Xbox 360 (`xbox360/`), smoke tests (`tests/`) |
 | `tests/` | Format tests on executables built in memory, and Lua rule tests |
 | `re/`, `tools/` | Reverse-engineering workflow: identify, list and extract resources, decompile with Ghidra |
+| `assets/` | The port's own icon (`tetrispack.ico`, drawn by `tools/make_icon.py`), built into the Windows executable |
 | `docs/formats.md` | NE and resource formats as the port reads them |
 | `docs/original.md` | What the port takes from TETRIS.EXE 2.00: layout, colours, rules |
 
