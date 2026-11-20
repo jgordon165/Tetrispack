@@ -135,6 +135,11 @@ int main(int argc, char** argv) {
     if (eng.dataArg.empty()) eng.dataArg = "data";
     if (!eng.loadData()) std::fprintf(stderr, "%s (playing without the original's art)\n", eng.dataError.c_str());
 
+#ifdef _WIN32
+    // The window's icon: the executable's own (src/tetrispack.rc).
+    SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "1");
+    SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL, "1");
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
