@@ -248,6 +248,11 @@ if(TETRISPACK_TESTS)
              --keys "30:pad a,40:5,50:f2,200:pad dpup,300:pad dpdown,420:pad dpdown"
              WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     set_tests_properties(xbox360_host PROPERTIES PASS_REGULAR_EXPRESSION "sfx place: [1-9]")
+    # Menu > Exit to Dashboard > Yes ends the title.
+    add_test(NAME xbox360_exit COMMAND tetrispack360_headless --frames 300
+             --keys "20:pad a,40:pad start,60:pad dpdown,70:pad dpdown,90:pad a,110:pad dpup,130:pad a"
+             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    set_tests_properties(xbox360_exit PROPERTIES PASS_REGULAR_EXPRESSION "quit at frame 13[0-9]")
 
     # The host's music must be heard, mixed as on the console: a content
     # folder with the scripts and the songs (rendered at 8 kHz, to be quick),

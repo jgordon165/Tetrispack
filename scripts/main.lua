@@ -15,6 +15,9 @@ local settings = require("game.settings")
 local jukebox = require("music.jukebox")
 
 local W, H = layout.w, layout.h
+-- On the Xbox 360, Exit ends the title and the console goes back to its
+-- dashboard; the menu says so.
+local toDashboard = tp.platform ~= nil and tp.platform():find("^Xbox 360") ~= nil
 -- The original blinks full rows by inverting them on 10 passes (5 flashes).
 local BLINK_PASSES, BLINK_STEP = 10, 0.06
 
@@ -195,8 +198,8 @@ local function settingsPanel()
         pause(not resume)
       end },
     { label = "High Scores", action = function() showScores() end },
-    { label = "Exit", action = function()
-        message("Tetris", { "End Tetris?" }, { "Yes", "No" },
+    { label = toDashboard and "Exit to Dashboard" or "Exit", action = function()
+        message("Tetris", { toDashboard and "Return to the dashboard?" or "End Tetris?" }, { "Yes", "No" },
                 function(i) if i == 1 then tp.quit(0) end end, 2)
       end },
     { header = "SKILL" },

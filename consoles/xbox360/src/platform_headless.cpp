@@ -138,7 +138,8 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "lua: %s\n", game.error().c_str());
         return 1;
     }
-    for (long f = 1; f <= frames && !game.quitRequested(); ++f) {
+    long f = 1;
+    for (; f <= frames && !game.quitRequested(); ++f) {
         std::pair<std::multimap<long, std::string>::iterator, std::multimap<long, std::string>::iterator> r =
             presses.equal_range(f);
         for (std::multimap<long, std::string>::iterator it = r.first; it != r.second; ++it)
@@ -149,6 +150,8 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+    // On the console the title would end here, back to the dashboard.
+    if (game.quitRequested()) std::printf("quit at frame %ld\n", f);
     for (std::map<std::string, int>::iterator it = platform.sfx.begin(); it != platform.sfx.end(); ++it)
         std::printf("sfx %s: %d\n", it->first.c_str(), it->second);
     std::printf("sound rms: %d\n", int(platform.rms()));
