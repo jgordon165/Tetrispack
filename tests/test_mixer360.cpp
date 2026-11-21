@@ -98,6 +98,22 @@ int main() {
     m.mix(&out[0], 4800);
     check(out[0] < 100 && out[2 * 4000] == 8000, "a fade in rises to full");
 
+    // A slow fade in (the game's are 0.8 s) rises too, all the way: its
+    // first steps are tiny, and must not be taken for the end of a fade out.
+    Sound slow;
+    slow.rate = 48000;
+    slow.channels = 2;
+    slow.samples.assign(2 * 48000, 8000);
+    m.setMusic(slow, 0.8);
+    std::vector<int16_t> second(2 * 48000);
+    m.mix(&second[0], 48000);
+    check(second[2 * 100] > 0, "a slow fade in is heard from the start");
+    check(second[2 * 19200] > 3500 && second[2 * 19200] < 4500, "halfway through a slow fade in is about half as loud");
+    check(second[2 * 47999] == 8000, "a slow fade in ends at full volume");
+    m.fadeOutMusic(0.8);
+    m.mix(&second[0], 48000);
+    check(!m.hasMusic(), "a slow fade out drops the song");
+
     // Sound effects: mono to both sides, once, scaled, restarted not doubled.
     Mixer fx(48000);
     Sound beep;

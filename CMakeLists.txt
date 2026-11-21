@@ -198,7 +198,7 @@ if(NOT MSVC)
 endif()
 tetrispack_warnings(tetrispack360_mixer)
 target_include_directories(tetrispack360_headless PRIVATE src)
-target_link_libraries(tetrispack360_headless PRIVATE lua_static)
+target_link_libraries(tetrispack360_headless PRIVATE lua_static tetrispack360_mixer)
 if(NOT MSVC)
     set_target_properties(tetrispack360_headless PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 endif()
@@ -248,6 +248,23 @@ if(TETRISPACK_TESTS)
              --keys "30:pad a,40:5,50:f2,200:pad dpup,300:pad dpdown,420:pad dpdown"
              WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     set_tests_properties(xbox360_host PROPERTIES PASS_REGULAR_EXPRESSION "sfx place: [1-9]")
+
+    # The host's music must be heard, mixed as on the console: a content
+    # folder with the scripts and the songs (rendered at 8 kHz, to be quick),
+    # then a game whose sound is measured.
+    set(content360 ${CMAKE_BINARY_DIR}/content360)
+    add_test(NAME xbox360_content_setup COMMAND ${CMAKE_COMMAND} -E make_directory ${content360}/music)
+    add_test(NAME xbox360_content_scripts
+             COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/scripts ${content360}/scripts)
+    add_test(NAME xbox360_content_music
+             COMMAND tetrispack_render_music ${CMAKE_SOURCE_DIR}/scripts loop-wav winfm 8000
+             WORKING_DIRECTORY ${content360}/music)
+    set_tests_properties(xbox360_content_setup PROPERTIES FIXTURES_SETUP content360_dir)
+    set_tests_properties(xbox360_content_scripts xbox360_content_music PROPERTIES
+                         FIXTURES_REQUIRED content360_dir FIXTURES_SETUP content360)
+    add_test(NAME xbox360_music COMMAND tetrispack360_headless --frames 300 WORKING_DIRECTORY ${content360})
+    set_tests_properties(xbox360_music PROPERTIES FIXTURES_REQUIRED content360
+                         PASS_REGULAR_EXPRESSION "music: music/winfm_1.wav \\(.*sound rms: [1-9]")
 
     # The shipped game must at least boot (and play its attract mode) without data.
     add_test(NAME boot COMMAND tetrispack --data ${CMAKE_BINARY_DIR}/no-such-folder --frames 120)

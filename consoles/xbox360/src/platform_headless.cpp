@@ -4,12 +4,16 @@
 //   tetrispack360_headless [--frames N] [--screenshot] [--keys 120:pad start,300:pad a]
 //
 // Run it from a folder laid out like the console's content folder (data/,
-// scripts/, music/, sfx/; the repository's root works). Keys are pressed at
+// scripts/, music/, sfx/; the repository's root works). The sound is mixed
+// as on the console (mixer360.cpp), at 48 kHz, and measured, not played:
+// "sound rms" at the end is its loudness over the run. Keys are pressed at
 // the given frames, by the names the console sends ("pad start",
 // "pad dpleft"). --screenshot saves the last frame as tetrispack360.bmp in
 // that folder. Exits non-zero on a Lua error.
 #include "host.h"
+#include "mixer360.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -41,7 +45,7 @@ bool writeFile(const char* name, const std::vector<uint8_t>& data) {
 
 class Headless : public x360::Platform {
 public:
-    Headless() : ms_(0) {}
+    Headless() : ms_(0), audio_(*this, kRate), sum2_(0), mixed_(0) {}
     bool readFile(const std::string& path, std::vector<uint8_t>& out) {
         FILE* f = std::fopen(path.c_str(), "rb");
         if (!f) return false;
@@ -62,20 +66,40 @@ public:
     const char* name() { return "Xbox 360 (headless)"; }
     uint32_t ticks() { return ms_; }
     void log(const std::string& s) { std::printf("%s\n", s.c_str()); }
-    bool hasAudio() { return false; }
-    void playMusic(const std::string& path, double) { std::printf("music: %s\n", path.c_str()); }
-    void stopMusic(double) {}
-    void pauseMusic(bool) {}
-    void setMusicVolume(float) {}
-    double musicPosition() { return 0; }
-    void playSfx(const std::string& name, float) { ++sfx[name]; }
-    void setSfxVolume(float) {}
+    bool hasAudio() { return true; }
+    void playMusic(const std::string& path, double fade) {
+        std::printf("music: %s\n", path.c_str());
+        audio_.playMusic(path, fade);
+    }
+    void stopMusic(double fade) { audio_.stopMusic(fade); }
+    void pauseMusic(bool on) { audio_.pauseMusic(on); }
+    void setMusicVolume(float v) { audio_.setMusicVolume(v); }
+    double musicPosition() { return audio_.musicPosition(); }
+    // Counted for the tests; mixed too where sfx/ has them.
+    void playSfx(const std::string& name, float gain) {
+        ++sfx[name];
+        if (fileExists(root() + "sfx/" + name + ".wav")) audio_.playSfx(root() + "sfx/" + name + ".wav", gain);
+    }
+    void setSfxVolume(float v) { audio_.setSfxVolume(v); }
 
-    void advance(uint32_t ms) { ms_ += ms; }
+    // One frame of 1/60 s: the time, and the sound mixed and measured.
+    void advance() {
+        ms_ += 16;
+        audio_.tick();
+        static int16_t out[kRate / 60 * 2];
+        audio_.mix(out, kRate / 60);
+        for (int i = 0; i < kRate / 60 * 2; ++i) sum2_ += double(out[i]) * out[i];
+        mixed_ += kRate / 60 * 2;
+    }
+    double rms() const { return mixed_ ? std::sqrt(sum2_ / mixed_) : 0; }
     std::map<std::string, int> sfx;
 
 private:
+    enum { kRate = 48000 };
     uint32_t ms_;
+    x360::Audio audio_;
+    double sum2_;
+    long mixed_;
 };
 
 }  // namespace
@@ -119,7 +143,7 @@ int main(int argc, char** argv) {
             presses.equal_range(f);
         for (std::multimap<long, std::string>::iterator it = r.first; it != r.second; ++it)
             if (!game.key(it->second)) { std::fprintf(stderr, "lua: %s\n", game.error().c_str()); return 1; }
-        platform.advance(16);
+        platform.advance();
         if (!game.frame(1.0 / 60.0)) {
             std::fprintf(stderr, "lua: %s\n", game.error().c_str());
             return 1;
@@ -127,6 +151,7 @@ int main(int argc, char** argv) {
     }
     for (std::map<std::string, int>::iterator it = platform.sfx.begin(); it != platform.sfx.end(); ++it)
         std::printf("sfx %s: %d\n", it->first.c_str(), it->second);
+    std::printf("sound rms: %d\n", int(platform.rms()));
     if (shot && !writeFile("tetrispack360.bmp", game.canvas().bmp())) {
         std::perror("tetrispack360.bmp");
         return 1;
