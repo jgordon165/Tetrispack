@@ -360,10 +360,14 @@ void endTitle(Screen& screen, Xbox& platform, x360::Canvas& c, int status) {
             xsdk_log_write("exit: launching %s", t.path.c_str());
             xsdk_present_close();
             xsdk_display_close();
-            (void)xsdk_gpu_close();
-            xsdk_log_close();
+            const NTSTATUS gpu = xsdk_gpu_close();
+            xsdk_log_write("exit: display and GPU handed back (0x%08X)", (unsigned)gpu);
+            // The log stays open across the launch: a launch that works ends
+            // the title here, and one that comes back says so.
             XamLoaderLaunchTitle(t.path.c_str(), 0);
-            XamLoaderTerminateTitle();   // only if the launch came back
+            xsdk_log_write("exit: XamLoaderLaunchTitle came back; ending the title instead");
+            xsdk_log_close();
+            XamLoaderTerminateTitle();
             for (;;) (void)xsdk_thread_sleep(1000);
         }
         xsdk_log_write("exit: %s isn't there; the dashboard instead", t.path.c_str());
