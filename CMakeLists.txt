@@ -274,7 +274,7 @@ if(TETRISPACK_TESTS)
     add_test(NAME xbox360_music COMMAND tetrispack360_headless --frames 300 WORKING_DIRECTORY ${content360})
     # tetrispack.ini's exit = a .xex: the menu's "Exit to Aurora" leads there.
     add_test(NAME xbox360_content_ini COMMAND ${CMAKE_COMMAND} -E copy
-             ${CMAKE_SOURCE_DIR}/tests/data/tetrispack-aurora.ini ${content360}/tetrispack.ini)
+             ${CMAKE_SOURCE_DIR}/tests/xbox360-exit-aurora.ini ${content360}/tetrispack.ini)
     set_tests_properties(xbox360_content_ini PROPERTIES FIXTURES_REQUIRED content360_dir FIXTURES_SETUP content360_ini)
     add_test(NAME xbox360_exit_to COMMAND tetrispack360_headless --frames 300
              --keys "20:pad a,40:pad start,60:pad dpdown,70:pad dpdown,90:pad a,110:pad dpup,130:pad a"
