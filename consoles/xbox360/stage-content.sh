@@ -27,5 +27,8 @@ for s in $styles; do
 done
 (cd "$out/sfx" && "$render" "$root/scripts" sfx-wav 44100)
 cp "$here/README-360.txt" "$out/README.txt"
+# Art for the Aurora dashboard (tools/make_aurora.py)
+mkdir -p "$out/aurora"
+cp "$here/aurora/icon.png" "$here/aurora/banner.png" "$out/aurora/"
 cp "$here/README-360.txt" "$out/data/PUT-TETRIS-EXE-HERE.txt"
 echo "content: $out ($(du -sh "$out" | cut -f1))"

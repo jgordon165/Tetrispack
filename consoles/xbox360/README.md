@@ -35,6 +35,7 @@ tetrispack/
   scripts/
   music/
   sfx/
+  aurora/      icon.png, banner.png for the Aurora dashboard
   README.txt
 ```
 
@@ -45,6 +46,19 @@ tetrispack/
    hands back the display and ends with `XamLoaderTerminateTitle`. The
    console then goes to its default dashboard, which is Aurora or FreeStyle
    if DashLaunch has made it the default.
+
+### Aurora art
+
+The package's `aurora/` folder has an icon (64x64) and a banner (420x96),
+at the sizes Aurora Asset Editor asks for. Both are drawn by
+`tools/make_aurora.py` in the style of the app icon.
+
+- The title's ID is **54500360**. xsdk gives every title 5853444B, so
+  without its own ID Aurora would mix up Tetrispack's art with other xsdk
+  titles'.
+- To show the art, give Aurora the images for that title. You can use
+  Aurora's own asset options for the game, or Aurora Asset Editor on a PC,
+  loading `icon.png` as the Icon and `banner.png` as the Banner.
 
 Without `TETRIS.EXE` it still plays, on a plain background. The title logs
 to xsdk's log (`game:\xsdk_test.log`); a Lua error is also shown on screen.
@@ -81,6 +95,7 @@ consoles/xbox360/package.sh build-xex/tetrispack.xex dist/tetrispack-xbox360.zip
 | `src/platform_xsdk.cpp` | The console: presenter, pads, sound driver, `game:/` files |
 | `src/platform_headless.cpp` | The same host on a PC, no window or sound, for tests |
 | `stage-content.sh`, `package.sh` | The folder around the title, zipped |
+| `aurora/` | The Aurora dashboard's icon and banner (`tools/make_aurora.py`) |
 
 Everything but `platform_xsdk.cpp` also builds on a PC as C++98/03. It
 links the PC build's Lua.

@@ -124,11 +124,15 @@ def draw(size):
         ImageDraw.Draw(clip).rectangle([ox, oy, ox + well - 1, oy + well - 1], fill=255)
         img.paste(Image.alpha_composite(img, glow), (0, 0), clip)
         d = ImageDraw.Draw(img)
-    if size >= 48:  # the ghost: outlines where the piece will land
+    if size >= 48:  # the ghost: outlines where the piece will land, blended in
+        ghost = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(ghost)
         for (cx, cy) in GHOST:
             w = max(SS, c // 12)
-            d.rectangle([ox + cx * c + w, oy + cy * c + w, ox + (cx + 1) * c - 1 - w, oy + (cy + 1) * c - 1 - w],
-                        outline=(120, 200, 255, 110), width=w)
+            gd.rectangle([ox + cx * c + w, oy + cy * c + w, ox + (cx + 1) * c - 1 - w, oy + (cy + 1) * c - 1 - w],
+                         outline=(120, 200, 255, 110), width=w)
+        img = Image.alpha_composite(img, ghost)
+        d = ImageDraw.Draw(img)
 
     for row, line in enumerate(WELL):
         for col, ch in enumerate(line):
