@@ -75,9 +75,9 @@ public:
     uint32_t ticks() { return ms_; }
     void log(const std::string& s) { std::printf("%s\n", s.c_str()); }
     bool hasAudio() { return true; }
-    void playMusic(const std::string& path, double fade) {
-        std::printf("music: %s\n", path.c_str());
-        audio_.playMusic(path, fade);
+    void playSong(std::shared_ptr<const music::Song> song, double fade) {
+        std::printf("music: %zu notes, %.0f s\n", song->notes.size(), song->length);
+        audio_.playSong(std::move(song), fade);
     }
     void stopMusic(double fade) { audio_.stopMusic(fade); }
     void pauseMusic(bool on) { audio_.pauseMusic(on); }
@@ -93,7 +93,6 @@ public:
     // One frame of 1/60 s: the time, and the sound mixed and measured.
     void advance() {
         ms_ += 16;
-        audio_.tick();
         static int16_t out[kRate / 60 * 2];
         audio_.mix(out, kRate / 60);
         for (int i = 0; i < kRate / 60 * 2; ++i) sum2_ += double(out[i]) * out[i];

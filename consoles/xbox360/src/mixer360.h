@@ -1,15 +1,18 @@
 // The Xbox 360 host's sound mixer, for platforms with no mixer of their own
 // (platform_xsdk.cpp: the kernel's render driver only takes finished
 // frames). Plays one looping song and one sound per effect at a time,
-// resampled to the output rate, into 16-bit stereo. Portable C++03: it also
-// builds on a PC, where tests/test_mixer360.cpp checks it.
+// resampled to the output rate, into 16-bit stereo. Portable: it also builds
+// on a PC, where tests/test_mixer360.cpp checks it.
 //
 // Not thread-safe: a platform that mixes on another thread holds a lock
 // around every call.
 #pragma once
 
+#include "music/player.h"
+
 #include <stdint.h>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -67,10 +70,11 @@ private:
 class Platform;
 
 // What a platform with no sound system of its own does with the game's
-// music and effect calls (Platform's playMusic ... setSfxVolume): songs and
-// effects read as WAVE files through the platform, a song started once the
-// last has faded out, the mixing done here. The console mixes on a thread
-// of its own and passes a Lock; elsewhere the default does nothing.
+// music and effect calls (Platform's playSong ... setSfxVolume): the songs
+// synthesized live by the PC's music player on the Super NES engine
+// (src/music; no song files), the effects read as WAVE files through the
+// platform, all mixed here. The console mixes on a thread of its own and
+// passes a Lock; elsewhere the default does nothing.
 class Audio {
 public:
     struct Lock {
@@ -81,33 +85,28 @@ public:
 
     Audio(Platform& files, int outRate, Lock* lock = 0);
 
-    void playMusic(const std::string& path, double fade);
+    // Starts `song` (looping), fading the last out over `fade` seconds first.
+    void playSong(std::shared_ptr<const music::Song> song, double fade);
     void stopMusic(double fade);
     void pauseMusic(bool on);
     void setMusicVolume(float v);
     double musicPosition();
+    bool musicPlaying();
     // `path` is the effect's WAVE file; read on first use and kept.
     void playSfx(const std::string& path, float gain);
     void setSfxVolume(float v);
 
-    // Once a frame, on the game's thread: starts a waiting song once the
-    // last has faded (its file is read here, never while mixing).
-    void tick();
     // The next `frames` stereo frames (any thread).
     void mix(int16_t* out, int frames);
 
-    const std::string& playing() const { return playing_; }
-
 private:
-    void startPending();
-
     Platform& files_;
     Lock none_;
     Lock* lock_;
+    int outRate_;
     Mixer mixer_;
+    music::Player player_;
     std::map<std::string, Sound> sfx_;
-    std::string playing_, pending_;
-    double pendingFade_;
 };
 
 }  // namespace x360

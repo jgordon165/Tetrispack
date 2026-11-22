@@ -125,6 +125,7 @@ tetrispack_warnings(tetrispack_formats)
 add_library(tetrispack_music STATIC
     src/music/player.cpp
     src/music/backend.cpp
+    src/music/envelope.cpp
     src/music/engine_opl3.cpp
     src/music/engine_genesis.cpp
     src/music/engine_snes.cpp
@@ -183,25 +184,30 @@ endif()
 # ---- The Xbox 360 host, headless ---------------------------------------------
 # consoles/xbox360 runs the Lua game on a small C++03 host; the console's
 # build is its own project (consoles/xbox360/CMakeLists.txt, with xsdk).
-# Everything but its console layer also builds here, held to C++98/03 on
-# GCC and Clang, and runs in the tests.
+# Everything but its console layer also builds here and runs in the tests.
 add_executable(tetrispack360_headless
     consoles/xbox360/src/canvas.cpp
     consoles/xbox360/src/formats360.cpp
     consoles/xbox360/src/game.cpp
     consoles/xbox360/src/platform_headless.cpp)
+# Its music: the PC's Super NES engine, synthesized live (the only style the
+# 360 offers), so the package needs no rendered songs.
+add_library(tetrispack360_music STATIC
+    src/music/player.cpp
+    src/music/envelope.cpp
+    src/music/engine_snes.cpp
+    src/music/song_lua.cpp
+    src/music/backend_snes.cpp)
+target_include_directories(tetrispack360_music PUBLIC src)
+target_link_libraries(tetrispack360_music PUBLIC lua_static)
+tetrispack_warnings(tetrispack360_music)
 # The mixer the xsdk build uses (it has no mixer of its own), tested below.
 add_library(tetrispack360_mixer STATIC consoles/xbox360/src/mixer360.cpp consoles/xbox360/src/exit360.cpp)
 target_include_directories(tetrispack360_mixer PUBLIC consoles/xbox360/src)
-if(NOT MSVC)
-    set_target_properties(tetrispack360_mixer PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
-endif()
+target_link_libraries(tetrispack360_mixer PUBLIC tetrispack360_music)
 tetrispack_warnings(tetrispack360_mixer)
 target_include_directories(tetrispack360_headless PRIVATE src)
 target_link_libraries(tetrispack360_headless PRIVATE lua_static tetrispack360_mixer)
-if(NOT MSVC)
-    set_target_properties(tetrispack360_headless PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
-endif()
 tetrispack_warnings(tetrispack360_headless)
 
 # ---- Tests -------------------------------------------------------------------
@@ -258,18 +264,14 @@ if(TETRISPACK_TESTS)
              WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     set_tests_properties(xbox360_exit PROPERTIES PASS_REGULAR_EXPRESSION "quit at frame 13[0-9], to the dashboard")
 
-    # The host's music must be heard, mixed as on the console: a content
-    # folder with the scripts and the songs (rendered at 8 kHz, to be quick),
-    # then a game whose sound is measured.
+    # The host's music must be heard: synthesized live (Super NES), mixed as
+    # on the console, from a content folder with the scripts.
     set(content360 ${CMAKE_BINARY_DIR}/content360)
-    add_test(NAME xbox360_content_setup COMMAND ${CMAKE_COMMAND} -E make_directory ${content360}/music)
+    add_test(NAME xbox360_content_setup COMMAND ${CMAKE_COMMAND} -E make_directory ${content360})
     add_test(NAME xbox360_content_scripts
              COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/scripts ${content360}/scripts)
-    add_test(NAME xbox360_content_music
-             COMMAND tetrispack_render_music ${CMAKE_SOURCE_DIR}/scripts loop-wav winfm 8000
-             WORKING_DIRECTORY ${content360}/music)
     set_tests_properties(xbox360_content_setup PROPERTIES FIXTURES_SETUP content360_dir)
-    set_tests_properties(xbox360_content_scripts xbox360_content_music PROPERTIES
+    set_tests_properties(xbox360_content_scripts PROPERTIES
                          FIXTURES_REQUIRED content360_dir FIXTURES_SETUP content360)
     add_test(NAME xbox360_music COMMAND tetrispack360_headless --frames 300 WORKING_DIRECTORY ${content360})
     # tetrispack.ini's exit = a .xex: the menu's "Exit to Aurora" leads there.
@@ -282,7 +284,7 @@ if(TETRISPACK_TESTS)
     set_tests_properties(xbox360_exit_to PROPERTIES FIXTURES_REQUIRED "content360;content360_ini"
                          PASS_REGULAR_EXPRESSION "to \\\\Device\\\\Mass0\\\\Aurora\\\\default.xex")
     set_tests_properties(xbox360_music PROPERTIES FIXTURES_REQUIRED content360
-                         PASS_REGULAR_EXPRESSION "music: music/winfm_1.wav \\(.*sound rms: [1-9]")
+                         PASS_REGULAR_EXPRESSION "music: [1-9][0-9]* notes.*sound rms: [1-9]")
 
     # The shipped game must at least boot (and play its attract mode) without data.
     add_test(NAME boot COMMAND tetrispack --data ${CMAKE_BINARY_DIR}/no-such-folder --frames 120)

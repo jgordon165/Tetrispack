@@ -7,7 +7,8 @@
 #   cmake --build build-xex
 #
 # Then package.sh puts tetrispack.xex in a folder with the scripts, the
-# music and sound effects, and an empty data/ for the player's own files.
+# sound effects, and an empty data/ for the player's own files. The music
+# is synthesized as it plays (the Super NES engine), so it needs no files.
 cmake_minimum_required(VERSION 3.20)
 project(Tetrispack360 VERSION 0.1.0 LANGUAGES C CXX ASM)
 
@@ -62,8 +63,15 @@ add_executable(tetrispack
     src/formats360.cpp
     src/game.cpp
     src/mixer360.cpp
-    src/platform_xsdk.cpp)
-target_include_directories(tetrispack PRIVATE ${repo}/src)   # the fonts
+    src/platform_xsdk.cpp
+    # the music, synthesized live: the PC's player on its Super NES engine
+    ${repo}/src/music/player.cpp
+    ${repo}/src/music/envelope.cpp
+    ${repo}/src/music/engine_snes.cpp
+    ${repo}/src/music/song_lua.cpp
+    ${repo}/src/music/backend_snes.cpp)
+set_target_properties(tetrispack PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+target_include_directories(tetrispack PRIVATE ${repo}/src)   # the fonts and music/
 target_link_libraries(tetrispack PRIVATE lua360)
 target_compile_options(tetrispack PRIVATE -Wall -Wextra)
 # The console's binary: xsdk links its start-up and library, then packs tetrispack.xex.

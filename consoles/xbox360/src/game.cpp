@@ -1,6 +1,7 @@
 // The Xbox 360 host's Lua side: the `tp` table the game scripts call (the
 // same API as the PC's src/lua_api.cpp), and loading the scripts.
 #include "host.h"
+#include "music/song_lua.h"
 
 // Lua is compiled as C, on the console as on the PC.
 extern "C" {
@@ -175,36 +176,21 @@ int l_exit_name(lua_State* L) { lua_pushstring(L, game(L)->platform().exitName()
 int l_base_path(lua_State* L) { lua_pushstring(L, game(L)->platform().root().c_str()); return 1; }
 int l_has_audio(lua_State* L) { lua_pushboolean(L, game(L)->platform().hasAudio()); return 1; }
 
-std::string musicPath(Platform& p, int n, const std::string& style) {
-    return std::string("music") + p.separator() + style + "_" + str(n) + ".wav";
-}
-
-// tp.music_styles() -> the styles whose songs were rendered for this host.
-int l_music_styles(lua_State* L) {
-    static const char* const ids[] = { "winfm", "midi", "snes", "genesis", "opl3" };
-    Platform& p = game(L)->platform();
+// tp.music_engines() -> the styles this host synthesizes: the Super NES one
+// (src/music/engine_snes.cpp, live). jukebox.lua offers only these.
+int l_music_engines(lua_State* L) {
     lua_newtable(L);
-    int n = 0;
-    for (size_t i = 0; i < sizeof(ids) / sizeof(ids[0]); ++i)
-        if (p.fileExists(p.root() + musicPath(p, 1, ids[i]))) {
-            lua_pushstring(L, ids[i]);
-            lua_rawseti(L, -2, ++n);
-        }
-    if (n == 0) {   // none: keep one, silent, so the menu has a choice
-        lua_pushstring(L, "winfm");
-        lua_rawseti(L, -2, 1);
-    }
+    lua_pushstring(L, "snes");
+    lua_rawseti(L, -2, 1);
     return 1;
 }
 
-// tp.music_track(n, style [, fade]): song n as rendered for `style`.
-int l_music_track(lua_State* L) {
-    Platform& p = game(L)->platform();
-    p.playMusic(p.root() + musicPath(p, iarg(L, 1), luaL_checkstring(L, 2)), luaL_optnumber(L, 3, 0.6));
+// tp.music_play(song [, fade]): the table jukebox.build makes (music/song_lua.h).
+int l_music_play(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    game(L)->platform().playSong(music::songFromLua(L, 1), luaL_optnumber(L, 2, 0.6));
     return 0;
 }
-
-int l_music_play(lua_State*) { return 0; }   // no synthesis here: jukebox uses music_track
 int l_music_stop(lua_State* L) { game(L)->platform().stopMusic(luaL_optnumber(L, 1, 0.6)); return 0; }
 int l_music_pause(lua_State* L) { game(L)->platform().pauseMusic(lua_toboolean(L, 1) != 0); return 0; }
 int l_music_volume(lua_State* L) { game(L)->platform().setMusicVolume(float(luaL_checknumber(L, 1))); return 0; }
@@ -280,7 +266,7 @@ bool Game::boot(const std::string& data, const std::string& scripts) {
         { "canvas", l_canvas }, { "clear", l_clear }, { "fill", l_fill }, { "text", l_text },
         { "text_width", l_text_width }, { "draw", l_draw },
         { "key_down", l_key_down }, { "ticks", l_ticks }, { "title", l_title }, { "quit", l_quit }, { "exit_name", l_exit_name }, { "log", l_log },
-        { "music_play", l_music_play }, { "music_track", l_music_track }, { "music_styles", l_music_styles },
+        { "music_play", l_music_play }, { "music_engines", l_music_engines },
         { "music_stop", l_music_stop }, { "music_pause", l_music_pause }, { "music_volume", l_music_volume },
         { "music_position", l_music_position }, { "music_soundfont", l_music_soundfont },
         { "sfx", l_sfx }, { "sfx_volume", l_sfx_volume },

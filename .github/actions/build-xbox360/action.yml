@@ -60,8 +60,8 @@ runs:
         cmake --build build-xex
         ls -la build-xex/tetrispack.xex
 
-    # The content: the scripts, the songs rendered ahead of time and the
-    # sound effects, made by the PC build's music tool.
+    # The content: the scripts and the sound effects, made by the PC build's
+    # music tool (the songs are synthesized on the console).
     - name: Configure host tools
       uses: ./.github/actions/configure-linux
     - name: Build the music tool

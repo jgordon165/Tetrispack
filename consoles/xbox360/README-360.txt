@@ -13,7 +13,6 @@ from your own copy of the original, which is not included.
        tetrispack.xex
        data/          <- TETRIS.EXE, ABOUTTET.DLL, TETRIS.HST
        scripts/
-       music/
        sfx/
 
 2. Copy the whole tetrispack folder to a USB stick or the hard drive of a
