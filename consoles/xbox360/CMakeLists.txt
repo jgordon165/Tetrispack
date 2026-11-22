@@ -52,3 +52,11 @@ target_link_libraries(tetrispack PRIVATE lua360)
 target_compile_options(tetrispack PRIVATE -Wall -Wextra)
 # The console's binary: xsdk links its start-up and library, then packs tetrispack.xex.
 xsdk_add_xex(tetrispack)
+# Packed again with a title ID of its own: xsdk gives every title 5853444B
+# ("XSDK"), and dashboards keep art and stats by title ID, so Aurora would
+# show one title's banner on every xsdk title. "TP" and 0360.
+set(TETRISPACK_TITLE_ID 54500360 CACHE STRING "The title ID in tetrispack.xex (hex)")
+add_custom_command(TARGET tetrispack POST_BUILD
+    COMMAND python3 "${XSDK_ROOT}/tools/elf2xex.py" --title-id ${TETRISPACK_TITLE_ID}
+            "$<TARGET_FILE:tetrispack>" "$<TARGET_FILE_DIR:tetrispack>/tetrispack.xex"
+    VERBATIM)

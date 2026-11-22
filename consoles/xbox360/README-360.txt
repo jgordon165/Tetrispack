@@ -26,4 +26,8 @@ A rotates, B drops, Back pauses, the shoulders slide to the wall, Start
 opens the menu. Menu > Exit to Dashboard leaves the game for the console's
 default dashboard (Aurora or FreeStyle, if DashLaunch makes it the default).
 
+Aurora: the aurora folder has an icon (64x64) and a banner (420x96) for
+the dashboard. The title's ID is 54500360; load the images for it with
+Aurora's asset options or Aurora Asset Editor.
+
 Source and issues: https://github.com/jgordon165/Tetrispack
