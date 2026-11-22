@@ -20,6 +20,7 @@
 #include "mixer360.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -206,6 +207,20 @@ public:
         return true;
     }
 
+    // Before the title ends: the feeder stops and the sound driver is given
+    // back, so nothing is left running into the dashboard.
+    void shutdown() {
+        running_ = false;
+        if (feeder_) {
+            const int64_t halfSecond = -5000000;   // relative, in 100 ns
+            NtWaitForSingleObjectEx(feeder_, USER_MODE, 0, &halfSecond);
+            NtClose(feeder_);
+            feeder_ = 0;
+        }
+        const uint32_t d = __atomic_exchange_n(&driver, 0u, __ATOMIC_ACQ_REL);
+        if (d) XAudioUnregisterRenderDriverClient(d);
+    }
+
     // Once a frame: a waiting song starts once the last has faded out.
     void tick() {
         if (!feeder_) fill();
@@ -305,6 +320,19 @@ uint16_t padButtons() {
     return b;
 }
 
+// Ends the title: the sound stopped, the screen black, then newlib's exit,
+// whose _exit (xsdk src/exit.c) closes the display and GPU and calls
+// XamLoaderTerminateTitle. The console goes back to its default dashboard
+// (the stock one, or Aurora / FreeStyle when DashLaunch makes it the
+// default), not to whatever launched the title.
+void endTitle(Screen& screen, Xbox& platform, x360::Canvas& c, int status) {
+    xsdk_log_write("exit: back to the dashboard");
+    platform.shutdown();
+    c.clear(0, 0, 0);
+    screen.present(c);
+    std::exit(status);
+}
+
 // Shows a Lua error instead of the game, so a broken scripts/ folder says why.
 void showError(Screen& screen, x360::Canvas& c, const std::string& msg) {
     xsdk_log_write("stopped: %s", msg.c_str());
@@ -370,5 +398,8 @@ int main(int, char**) {
         platform.tick();
         screen.present(game.canvas());   // waits for a front buffer: 60 frames a second
     }
+    // Menu > Exit to Dashboard. Not a return from main: the game and the
+    // platform stay alive (their destructors would run under the feeder).
+    endTitle(screen, platform, game.canvas(), 0);
     return 0;
 }

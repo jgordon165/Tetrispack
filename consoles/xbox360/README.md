@@ -41,6 +41,10 @@ tetrispack/
 1. Copy the folder to a USB stick or the console's hard drive. The console
    must run unsigned code (BadUpdate + FreeMyXe, RGH or JTAG).
 2. Launch `tetrispack.xex` from Aurora, a file manager or the dashboard.
+3. To leave, choose Menu > Exit to Dashboard. The title stops its sound,
+   hands back the display and ends with `XamLoaderTerminateTitle`. The
+   console then goes to its default dashboard, which is Aurora or FreeStyle
+   if DashLaunch has made it the default.
 
 Without `TETRIS.EXE` it still plays, on a plain background. The title logs
 to xsdk's log (`game:\xsdk_test.log`); a Lua error is also shown on screen.

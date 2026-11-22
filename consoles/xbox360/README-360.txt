@@ -23,6 +23,7 @@ from your own copy of the original, which is not included.
 
 Controls: D-pad or left stick moves (left and right repeat while held),
 A rotates, B drops, Back pauses, the shoulders slide to the wall, Start
-opens the menu.
+opens the menu. Menu > Exit to Dashboard leaves the game for the console's
+default dashboard (Aurora or FreeStyle, if DashLaunch makes it the default).
 
 Source and issues: https://github.com/jgordon165/Tetrispack
