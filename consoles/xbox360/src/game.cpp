@@ -171,6 +171,7 @@ int l_title(lua_State*) { return 0; }
 int l_quit(lua_State* L) { game(L)->requestQuit(); return 0; }
 int l_log(lua_State* L) { game(L)->platform().log(luaL_checkstring(L, 1)); return 0; }
 int l_platform(lua_State* L) { lua_pushstring(L, game(L)->platform().name()); return 1; }
+int l_exit_name(lua_State* L) { lua_pushstring(L, game(L)->platform().exitName().c_str()); return 1; }
 int l_base_path(lua_State* L) { lua_pushstring(L, game(L)->platform().root().c_str()); return 1; }
 int l_has_audio(lua_State* L) { lua_pushboolean(L, game(L)->platform().hasAudio()); return 1; }
 
@@ -278,7 +279,7 @@ bool Game::boot(const std::string& data, const std::string& scripts) {
         { "bitmap", l_bitmap }, { "string", l_string }, { "dialog", l_dialog }, { "exe_string", l_exe_string },
         { "canvas", l_canvas }, { "clear", l_clear }, { "fill", l_fill }, { "text", l_text },
         { "text_width", l_text_width }, { "draw", l_draw },
-        { "key_down", l_key_down }, { "ticks", l_ticks }, { "title", l_title }, { "quit", l_quit }, { "log", l_log },
+        { "key_down", l_key_down }, { "ticks", l_ticks }, { "title", l_title }, { "quit", l_quit }, { "exit_name", l_exit_name }, { "log", l_log },
         { "music_play", l_music_play }, { "music_track", l_music_track }, { "music_styles", l_music_styles },
         { "music_stop", l_music_stop }, { "music_pause", l_music_pause }, { "music_volume", l_music_volume },
         { "music_position", l_music_position }, { "music_soundfont", l_music_soundfont },

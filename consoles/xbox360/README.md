@@ -36,16 +36,42 @@ tetrispack/
   music/
   sfx/
   aurora/      icon.png, banner.png for the Aurora dashboard
+  tetrispack.ini   where Menu > Exit goes
   README.txt
 ```
 
 1. Copy the folder to a USB stick or the console's hard drive. The console
    must run unsigned code (BadUpdate + FreeMyXe, RGH or JTAG).
 2. Launch `tetrispack.xex` from Aurora, a file manager or the dashboard.
-3. To leave, choose Menu > Exit to Dashboard. The title stops its sound,
-   hands back the display and ends with `XamLoaderTerminateTitle`. The
-   console then goes to its default dashboard, which is Aurora or FreeStyle
-   if DashLaunch has made it the default.
+3. To leave, choose Menu > Exit to Dashboard. The title stops its sound and
+   hands back the display. By default it then ends with
+   `XamLoaderTerminateTitle`, and the console goes to its default dashboard,
+   which is Aurora or FreeStyle if DashLaunch has made it the default.
+
+### Where Exit goes
+
+Exit can also go to a dashboard or app of your choosing. Set it in
+`tetrispack.ini`, next to `tetrispack.xex`:
+
+```ini
+[xbox360]
+exit = Usb0:\Aurora\default.xex   ; or: dashboard (the default)
+; exit_name = Aurora                ; the menu's "Exit to ..."
+```
+
+- **Drives:** `Usb0:\` (also `Usb:\`), `Usb1:\` and `Usb2:\` are the USB
+  drives, `Hdd:\` is the hard drive, and `game:\` is Tetrispack's own
+  folder (`game:\..\` is the one above it). A `\Device\...` path is used as
+  written.
+- **Menu label:** it names the .xex's folder, so the item reads "Exit to
+  Aurora", unless `exit_name` says otherwise.
+- **Launching:** Exit stops the sound, hands back the display and GPU, then
+  starts the .xex with XAM's `XamLoaderLaunchTitle`.
+- **Fallback:** if the setting is wrong or the .xex isn't there, Exit goes to
+  the dashboard. The log says why.
+
+The parsing is `src/exit360.cpp`, tested by `exit360` and
+`xbox360_exit_to`.
 
 ### Aurora art
 
@@ -61,7 +87,7 @@ at the sizes Aurora Asset Editor asks for. Both are drawn by
   loading `icon.png` as the Icon and `banner.png` as the Banner.
 
 Without `TETRIS.EXE` it still plays, on a plain background. The title logs
-to xsdk's log (`game:\xsdk_test.log`); a Lua error is also shown on screen.
+to `tetrispack.log` next to the .xex (xsdk's log, named after the title); a Lua error is also shown on screen.
 
 ## Building
 

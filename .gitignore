@@ -48,3 +48,5 @@ dist/
 /build-snes/
 /xsdk/
 /stage/
+!/consoles/xbox360/tetrispack.ini
+!/tests/xbox360-exit-aurora.ini

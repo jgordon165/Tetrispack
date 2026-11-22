@@ -17,6 +17,7 @@
 // time, six channels of floats; a feeder thread mixes the music and effects
 // (mixer360.cpp) into a ring it reads from.
 #include "host.h"
+#include "exit360.h"
 #include "mixer360.h"
 
 #include <cstdio>
@@ -35,6 +36,11 @@
 #include "xsdk/log.h"
 #include "xsdk/present.h"
 #include "xsdk/thread.h"
+
+// XAM's loader: ends this title and starts the .xex at `path` (a kernel
+// path such as "\Device\Mass0\Aurora\default.xex"). Not in xsdk's imports;
+// the stub comes from imports.txt (consoles/xbox360/CMakeLists.txt).
+extern "C" void XamLoaderLaunchTitle(const char* path, uint32_t flags);
 
 // In libxsdk.a (its private gpu_private.h): the byte offset of texel (x, y)
 // in Xenos's tiled layout.
@@ -238,6 +244,21 @@ public:
     const char* name() { return "Xbox 360"; }
     uint32_t ticks() { return uint32_t(timeBase() / (kTimeBase / 1000)); }
     void log(const std::string& s) { xsdk_log_write("%s", s.c_str()); }
+    std::string exitName() { return exit_.name; }
+
+    // tetrispack.ini's [xbox360] exit setting, read once at the start.
+    void loadExit() {
+        std::vector<uint8_t> f;
+        if (!readWhole(root() + "tetrispack.ini", f)) {
+            xsdk_log_write("exit: no tetrispack.ini, so the dashboard");
+            return;
+        }
+        exit_ = x360::parseExitConfig(std::string(f.begin(), f.end()), ExLoadedImageName ? ExLoadedImageName : "");
+        if (!exit_.error.empty()) xsdk_log_write("exit: %s; the dashboard instead", exit_.error.c_str());
+        else if (exit_.path.empty()) xsdk_log_write("exit: the dashboard");
+        else xsdk_log_write("exit: %s", exit_.path.c_str());
+    }
+    const x360::ExitTarget& exitTarget() const { return exit_; }
     bool hasAudio() { return __atomic_load_n(&driver, __ATOMIC_ACQUIRE) != 0; }
     void playMusic(const std::string& path, double fade) { if (hasAudio()) audio_.playMusic(path, fade); }
     void stopMusic(double fade) { audio_.stopMusic(fade); }
@@ -281,6 +302,7 @@ private:
 
     CriticalSection lock_;
     x360::Audio audio_;
+    x360::ExitTarget exit_;
     HANDLE feeder_;
     volatile bool running_;
 };
@@ -320,16 +342,33 @@ uint16_t padButtons() {
     return b;
 }
 
-// Ends the title: the sound stopped, the screen black, then newlib's exit,
-// whose _exit (xsdk src/exit.c) closes the display and GPU and calls
-// XamLoaderTerminateTitle. The console goes back to its default dashboard
-// (the stock one, or Aurora / FreeStyle when DashLaunch makes it the
-// default), not to whatever launched the title.
+// Ends the title: the sound stopped and the screen black, then either
+//  - the .xex set in tetrispack.ini, if it's there: the display and GPU are
+//    handed back as xsdk's _exit does (src/exit.c), then XAM's loader
+//    starts it; or
+//  - newlib's exit, whose _exit closes the display and GPU and calls
+//    XamLoaderTerminateTitle: the console's default dashboard (the stock
+//    one, or Aurora / FreeStyle when DashLaunch makes it the default).
 void endTitle(Screen& screen, Xbox& platform, x360::Canvas& c, int status) {
-    xsdk_log_write("exit: back to the dashboard");
     platform.shutdown();
     c.clear(0, 0, 0);
     screen.present(c);
+    const x360::ExitTarget& t = platform.exitTarget();
+    if (!t.path.empty()) {
+        struct stat st;
+        if (stat(t.path.c_str(), &st) == 0) {
+            xsdk_log_write("exit: launching %s", t.path.c_str());
+            xsdk_present_close();
+            xsdk_display_close();
+            (void)xsdk_gpu_close();
+            xsdk_log_close();
+            XamLoaderLaunchTitle(t.path.c_str(), 0);
+            XamLoaderTerminateTitle();   // only if the launch came back
+            for (;;) (void)xsdk_thread_sleep(1000);
+        }
+        xsdk_log_write("exit: %s isn't there; the dashboard instead", t.path.c_str());
+    }
+    xsdk_log_write("exit: back to the dashboard");
     std::exit(status);
 }
 
@@ -361,11 +400,12 @@ extern "C" clock_t times(struct tms* t) {
 }
 
 int main(int, char**) {
-    // xsdk's start-up has opened the log already (game:/xsdk_test.log or the debugger).
+    // xsdk's start-up has opened the log already (game:/tetrispack.log, or the debugger).
     xsdk_log_write("Tetrispack for the Xbox 360 (xsdk)");
     Screen screen;
     if (!screen.init()) return 1;
     Xbox platform;
+    platform.loadExit();
     platform.initAudio();
     x360::Game game(platform);
     if (!game.boot("data/", "scripts/")) showError(screen, game.canvas(), game.error());

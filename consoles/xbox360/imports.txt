@@ -1,0 +1,6 @@
+# Kernel and XAM imports the title uses beyond xsdk's own (xsdk's
+# imports/imports.txt): library, ordinal, export name. Ordinals from
+# xenia:src/xenia/kernel/xam/xam_table.inc. xsdk's gen_imports.py makes a
+# stub for each (consoles/xbox360/CMakeLists.txt).
+
+xam.xex       0x1A4  XamLoaderLaunchTitle

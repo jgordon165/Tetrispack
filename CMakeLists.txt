@@ -191,7 +191,7 @@ add_executable(tetrispack360_headless
     consoles/xbox360/src/game.cpp
     consoles/xbox360/src/platform_headless.cpp)
 # The mixer the xsdk build uses (it has no mixer of its own), tested below.
-add_library(tetrispack360_mixer STATIC consoles/xbox360/src/mixer360.cpp)
+add_library(tetrispack360_mixer STATIC consoles/xbox360/src/mixer360.cpp consoles/xbox360/src/exit360.cpp)
 target_include_directories(tetrispack360_mixer PUBLIC consoles/xbox360/src)
 if(NOT MSVC)
     set_target_properties(tetrispack360_mixer PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
@@ -229,6 +229,10 @@ if(TETRISPACK_TESTS)
     target_link_libraries(tetrispack_mixer360_tests PRIVATE tetrispack360_mixer)
     tetrispack_warnings(tetrispack_mixer360_tests)
     add_test(NAME mixer360 COMMAND tetrispack_mixer360_tests)
+    add_executable(tetrispack_exit360_tests tests/test_exit360.cpp)
+    target_link_libraries(tetrispack_exit360_tests PRIVATE tetrispack360_mixer)
+    tetrispack_warnings(tetrispack_exit360_tests)
+    add_test(NAME exit360 COMMAND tetrispack_exit360_tests)
 
     if(DEFINED ENV{TETRISPACK_DATA})
         set_tests_properties(formats PROPERTIES ENVIRONMENT "TETRISPACK_DATA=$ENV{TETRISPACK_DATA}")
@@ -252,7 +256,7 @@ if(TETRISPACK_TESTS)
     add_test(NAME xbox360_exit COMMAND tetrispack360_headless --frames 300
              --keys "20:pad a,40:pad start,60:pad dpdown,70:pad dpdown,90:pad a,110:pad dpup,130:pad a"
              WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-    set_tests_properties(xbox360_exit PROPERTIES PASS_REGULAR_EXPRESSION "quit at frame 13[0-9]")
+    set_tests_properties(xbox360_exit PROPERTIES PASS_REGULAR_EXPRESSION "quit at frame 13[0-9], to the dashboard")
 
     # The host's music must be heard, mixed as on the console: a content
     # folder with the scripts and the songs (rendered at 8 kHz, to be quick),
@@ -268,6 +272,15 @@ if(TETRISPACK_TESTS)
     set_tests_properties(xbox360_content_scripts xbox360_content_music PROPERTIES
                          FIXTURES_REQUIRED content360_dir FIXTURES_SETUP content360)
     add_test(NAME xbox360_music COMMAND tetrispack360_headless --frames 300 WORKING_DIRECTORY ${content360})
+    # tetrispack.ini's exit = a .xex: the menu's "Exit to Aurora" leads there.
+    add_test(NAME xbox360_content_ini COMMAND ${CMAKE_COMMAND} -E copy
+             ${CMAKE_SOURCE_DIR}/tests/xbox360-exit-aurora.ini ${content360}/tetrispack.ini)
+    set_tests_properties(xbox360_content_ini PROPERTIES FIXTURES_REQUIRED content360_dir FIXTURES_SETUP content360_ini)
+    add_test(NAME xbox360_exit_to COMMAND tetrispack360_headless --frames 300
+             --keys "20:pad a,40:pad start,60:pad dpdown,70:pad dpdown,90:pad a,110:pad dpup,130:pad a"
+             WORKING_DIRECTORY ${content360})
+    set_tests_properties(xbox360_exit_to PROPERTIES FIXTURES_REQUIRED "content360;content360_ini"
+                         PASS_REGULAR_EXPRESSION "to \\\\Device\\\\Mass0\\\\Aurora\\\\default.xex")
     set_tests_properties(xbox360_music PROPERTIES FIXTURES_REQUIRED content360
                          PASS_REGULAR_EXPRESSION "music: music/winfm_1.wav \\(.*sound rms: [1-9]")
 
