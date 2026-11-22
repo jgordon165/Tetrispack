@@ -7,15 +7,15 @@
 // The folder the .xex is in (game:/):
 //   data/      your TETRIS.EXE (and ABOUTTET.DLL), copied there by you
 //   scripts/   the game (the repository's scripts/)
-//   music/     <style>_<n>.wav, rendered ahead of time (16-bit PCM)
 //   sfx/       <name>.wav
+// (no music folder: the songs are synthesized live, Super NES style)
 //
 // The picture: the canvas scaled into one of xsdk's three 1280x720 front
 // buffers, in the tiled layout the display reads (each pixel stored B, G, R,
 // A), flipped at vblank. The pad: XAM's input state, as the game's "pad ..."
 // names. The sound: the kernel's render driver asks for 256 frames at a
-// time, six channels of floats; a feeder thread mixes the music and effects
-// (mixer360.cpp) into a ring it reads from.
+// time, six channels of floats; a feeder thread synthesizes the music and
+// mixes in the effects (mixer360.cpp) into a ring it reads from.
 #include "host.h"
 #include "exit360.h"
 #include "mixer360.h"
@@ -227,10 +227,9 @@ public:
         if (d) XAudioUnregisterRenderDriverClient(d);
     }
 
-    // Once a frame: a waiting song starts once the last has faded out.
+    // Once a frame: the mixing, if there's no feeder thread to do it.
     void tick() {
         if (!feeder_) fill();
-        audio_.tick();
     }
 
     // Platform
@@ -260,7 +259,9 @@ public:
     }
     const x360::ExitTarget& exitTarget() const { return exit_; }
     bool hasAudio() { return __atomic_load_n(&driver, __ATOMIC_ACQUIRE) != 0; }
-    void playMusic(const std::string& path, double fade) { if (hasAudio()) audio_.playMusic(path, fade); }
+    void playSong(std::shared_ptr<const music::Song> song, double fade) {
+        if (hasAudio()) audio_.playSong(std::move(song), fade);
+    }
     void stopMusic(double fade) { audio_.stopMusic(fade); }
     void pauseMusic(bool on) { audio_.pauseMusic(on); }
     void setMusicVolume(float v) { audio_.setMusicVolume(v); }

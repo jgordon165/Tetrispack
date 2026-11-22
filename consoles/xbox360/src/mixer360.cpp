@@ -2,7 +2,6 @@
 
 #include "host.h"
 
-#include <cstdio>
 #include <cstring>
 
 namespace x360 {
@@ -157,31 +156,18 @@ struct Hold {
 }  // namespace
 
 Audio::Audio(Platform& files, int outRate, Lock* lock)
-    : files_(files), lock_(lock ? lock : &none_), mixer_(outRate), pendingFade_(0) {}
+    : files_(files), lock_(lock ? lock : &none_), outRate_(outRate), mixer_(outRate) {}
 
-void Audio::playMusic(const std::string& path, double fade) {
-    if (path == playing_ && pending_.empty()) return;
-    pending_ = path;
-    pendingFade_ = fade;
-    bool busy;
-    {
-        Hold h(*lock_);
-        busy = mixer_.hasMusic();
-        if (busy) mixer_.fadeOutMusic(fade > 0.05 ? fade : 0.05);
-    }
-    if (!busy) startPending();
-}
-
-void Audio::stopMusic(double fade) {
-    pending_.clear();
-    playing_.clear();
+void Audio::playSong(std::shared_ptr<const music::Song> song, double fade) {
     Hold h(*lock_);
-    mixer_.fadeOutMusic(fade);
+    player_.play(std::move(song), fade);
 }
 
-void Audio::pauseMusic(bool on) { Hold h(*lock_); mixer_.pauseMusic(on); }
-void Audio::setMusicVolume(float v) { Hold h(*lock_); mixer_.setMusicVolume(v); }
-double Audio::musicPosition() { Hold h(*lock_); return mixer_.musicPosition(); }
+void Audio::stopMusic(double fade) { Hold h(*lock_); player_.stop(fade); }
+void Audio::pauseMusic(bool on) { Hold h(*lock_); player_.setPaused(on); }
+void Audio::setMusicVolume(float v) { Hold h(*lock_); player_.setVolume(v); }
+double Audio::musicPosition() { Hold h(*lock_); return player_.position(); }
+bool Audio::musicPlaying() { Hold h(*lock_); return player_.playing(); }
 void Audio::setSfxVolume(float v) { Hold h(*lock_); mixer_.setSfxVolume(v); }
 
 void Audio::playSfx(const std::string& path, float gain) {
@@ -196,38 +182,11 @@ void Audio::playSfx(const std::string& path, float gain) {
     mixer_.playSfx(&it->second, gain);
 }
 
-void Audio::tick() {
-    if (pending_.empty()) return;
-    bool busy;
-    {
-        Hold h(*lock_);
-        busy = mixer_.hasMusic();
-    }
-    if (!busy) startPending();
-}
-
-void Audio::mix(int16_t* out, int frames) { Hold h(*lock_); mixer_.mix(out, frames); }
-
-void Audio::startPending() {
-    const std::string path = pending_;
-    pending_.clear();
-    playing_ = path;
-    std::vector<uint8_t> f;
-    Sound s;
-    if (!files_.readFile(path, f)) {
-        files_.log("music: can't read " + path);
-        return;
-    }
-    if (!decodeWave(f, s)) {
-        files_.log("music: not 16-bit PCM WAVE: " + path);
-        return;
-    }
-    std::vector<uint8_t>().swap(f);   // the file's memory back before the next
-    char line[64];
-    std::sprintf(line, " (%ld frames at %d Hz)", s.frames(), s.rate);
-    files_.log("music: " + path + line);
+// The effects first, then the song added on top (Player::render saturates).
+void Audio::mix(int16_t* out, int frames) {
     Hold h(*lock_);
-    mixer_.setMusic(s, pendingFade_ > 0.05 ? pendingFade_ : 0);
+    mixer_.mix(out, frames);
+    player_.render(out, frames, outRate_);
 }
 
 }  // namespace x360

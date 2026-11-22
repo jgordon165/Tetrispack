@@ -17,19 +17,19 @@ if tp and tp.base_path then
   if tp.music_soundfont(path) then jukebox.soundfont = path end
 end
 
--- Hosts that can't synthesize (the Xbox 360 build) play songs rendered
--- ahead of time instead: tp.music_styles() lists the styles they have.
-local prerendered = nil
-if tp and tp.music_styles then
-  prerendered = {}
-  for _, id in ipairs(tp.music_styles()) do prerendered[id] = true end
+-- Hosts with only some of the engines (the Xbox 360 build synthesizes the
+-- Super NES one) list them: tp.music_engines().
+local engines = nil
+if tp and tp.music_engines then
+  engines = {}
+  for _, id in ipairs(tp.music_engines()) do engines[id] = true end
 end
 
 -- The sound engines, in menu order (Windows MIDI only with a SoundFont).
 jukebox.styles = {}
 for _, id in ipairs({ "winfm", "midi", "snes", "genesis", "opl3" }) do
-  if prerendered then
-    if prerendered[id] then jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name } end
+  if engines then
+    if engines[id] then jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name } end
   elseif id ~= "midi" or jukebox.soundfont then
     jukebox.styles[#jukebox.styles + 1] = { id = id, name = profiles[id].name }
   end
@@ -153,8 +153,10 @@ jukebox.styleNames = {}
 for _, s in ipairs(jukebox.styles) do jukebox.styleNames[#jukebox.styleNames + 1] = s.name end
 
 jukebox.choice = "By Level"
--- Windows FM MIDI by default: the sound of the original's own era.
+-- Windows FM MIDI by default: the sound of the original's own era (or the
+-- host's first style, where it has fewer).
 jukebox.style = "Windows FM MIDI"
+if engines and not engines.winfm and jukebox.styles[1] then jukebox.style = jukebox.styles[1].name end
 jukebox.volume = 1          -- 0-10 (Options > Music)
 local current = nil         -- "song/style" playing
 
@@ -180,7 +182,6 @@ function jukebox.update(level, on)
   if key == current then return end
   current = key
   if not want then tp.music_stop(0.8)
-  elseif prerendered then tp.music_track(want, jukebox.styleId(), 0.8)
   else tp.music_play(get(want, jukebox.styleId()), 0.8) end
 end
 

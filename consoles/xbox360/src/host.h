@@ -1,7 +1,7 @@
 // The Xbox 360 host: runs the same Lua game as the PC (scripts/), with the
-// original's art read from the player's TETRIS.EXE, on a small C++03 host
-// with no SDL. The PC engine (src/) needs C++20 and SDL; this host keeps to
-// what the console's xsdk build has.
+// original's art read from the player's TETRIS.EXE, on a small host with no
+// SDL. It shares the PC's Super NES music engine and player (src/music),
+// built by xsdk's GCC as C++20.
 //
 // Game is portable: it holds the Lua state, the canvas and the `tp` API.
 // A Platform supplies files, time, audio and logging: platform_xsdk.cpp on
@@ -12,7 +12,10 @@
 #include "canvas.h"
 #include "formats360.h"
 
+#include "music/song.h"
+
 #include <stdint.h>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -31,9 +34,10 @@ public:
     virtual uint32_t ticks() = 0;                 // milliseconds
     virtual void log(const std::string& s) = 0;
 
-    // Music: songs rendered ahead of time (music\<style>_<n>.wav), looping.
+    // Music: songs synthesized live (music::Player, the Super NES engine),
+    // looping; a new one fades the last out first.
     virtual bool hasAudio() = 0;
-    virtual void playMusic(const std::string& path, double fade) = 0;
+    virtual void playSong(std::shared_ptr<const music::Song> song, double fade) = 0;
     virtual void stopMusic(double fade) = 0;
     virtual void pauseMusic(bool on) = 0;
     virtual void setMusicVolume(float v) = 0;
