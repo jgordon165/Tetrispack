@@ -11,6 +11,7 @@
 // "pad dpleft"). --screenshot saves the last frame as tetrispack360.bmp in
 // that folder. Exits non-zero on a Lua error.
 #include "host.h"
+#include "exit360.h"
 #include "mixer360.h"
 
 #include <cmath>
@@ -64,6 +65,13 @@ public:
     char separator() { return '/'; }
     std::string root() { return ""; }   // the current folder
     const char* name() { return "Xbox 360 (headless)"; }
+    // tetrispack.ini, as on the console (here as if run from Usb0:\tetrispack).
+    std::string exitName() { return exit().name; }
+    x360::ExitTarget exit() {
+        std::vector<uint8_t> f;
+        if (!readFile("tetrispack.ini", f)) return x360::ExitTarget();
+        return x360::parseExitConfig(std::string(f.begin(), f.end()), "\\Device\\Mass0\\tetrispack\\tetrispack.xex");
+    }
     uint32_t ticks() { return ms_; }
     void log(const std::string& s) { std::printf("%s\n", s.c_str()); }
     bool hasAudio() { return true; }
@@ -151,7 +159,10 @@ int main(int argc, char** argv) {
         }
     }
     // On the console the title would end here, back to the dashboard.
-    if (game.quitRequested()) std::printf("quit at frame %ld\n", f);
+    if (game.quitRequested()) {
+        const x360::ExitTarget t = platform.exit();
+        std::printf("quit at frame %ld, to %s\n", f, t.path.empty() ? "the dashboard" : t.path.c_str());
+    }
     for (std::map<std::string, int>::iterator it = platform.sfx.begin(); it != platform.sfx.end(); ++it)
         std::printf("sfx %s: %d\n", it->first.c_str(), it->second);
     std::printf("sound rms: %d\n", int(platform.rms()));

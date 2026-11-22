@@ -41,6 +41,9 @@ public:
     // Sound effects: sfx\<name>.wav.
     virtual void playSfx(const std::string& name, float gain) = 0;
     virtual void setSfxVolume(float v) = 0;
+    // Where Menu > Exit goes, for its label: "" for the dashboard, or a name
+    // ("Aurora"; tetrispack.ini, exit360.h).
+    virtual std::string exitName() { return std::string(); }
 };
 
 class Game {

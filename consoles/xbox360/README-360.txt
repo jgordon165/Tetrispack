@@ -23,8 +23,18 @@ from your own copy of the original, which is not included.
 
 Controls: D-pad or left stick moves (left and right repeat while held),
 A rotates, B drops, Back pauses, the shoulders slide to the wall, Start
-opens the menu. Menu > Exit to Dashboard leaves the game for the console's
-default dashboard (Aurora or FreeStyle, if DashLaunch makes it the default).
+opens the menu.
+
+Leaving: Menu > Exit to Dashboard goes to the console's default dashboard
+(Aurora or FreeStyle, if DashLaunch makes it the default). To go somewhere
+else, edit tetrispack.ini next to tetrispack.xex, for example
+
+  exit = Usb0:\Aurora\default.xex
+
+for a default.xex on the USB stick (Hdd:\ for the hard drive, Usb1:\ and
+Usb2:\ for other USB drives). The menu then reads "Exit to Aurora". If the
+.xex isn't there, Exit goes to the dashboard. tetrispack.log, next to the
+game, says what it chose.
 
 Aurora: the aurora folder has an icon (64x64) and a banner (420x96) for
 the dashboard. The title's ID is 54500360; load the images for it with

@@ -27,6 +27,8 @@ for s in $styles; do
 done
 (cd "$out/sfx" && "$render" "$root/scripts" sfx-wav 44100)
 cp "$here/README-360.txt" "$out/README.txt"
+# Where Menu > Exit goes (the dashboard unless changed)
+cp "$here/tetrispack.ini" "$out/tetrispack.ini"
 # Art for the Aurora dashboard (tools/make_aurora.py)
 mkdir -p "$out/aurora"
 cp "$here/aurora/icon.png" "$here/aurora/banner.png" "$out/aurora/"

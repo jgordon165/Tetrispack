@@ -9,7 +9,7 @@
 # Then package.sh puts tetrispack.xex in a folder with the scripts, the
 # music and sound effects, and an empty data/ for the player's own files.
 cmake_minimum_required(VERSION 3.20)
-project(Tetrispack360 VERSION 0.1.0 LANGUAGES C CXX)
+project(Tetrispack360 VERSION 0.1.0 LANGUAGES C CXX ASM)
 
 if(NOT XSDK)
     message(FATAL_ERROR "Configure with -DCMAKE_TOOLCHAIN_FILE=<xsdk>/cmake/xsdk.cmake "
@@ -40,8 +40,24 @@ add_compile_definitions(
     "$<$<COMPILE_LANGUAGE:CXX>:LLONG_MIN=(-__LONG_LONG_MAX__-1LL)>"
     "$<$<COMPILE_LANGUAGE:CXX>:ULLONG_MAX=(__LONG_LONG_MAX__*2ULL+1ULL)>")
 
+# ---- imports beyond xsdk's (imports.txt), as xsdk makes its own ---------------------
+set(imports_dir ${CMAKE_CURRENT_BINARY_DIR}/imports)
+execute_process(COMMAND python3 ${XSDK_ROOT}/tools/gen_imports.py --list ${CMAKE_CURRENT_SOURCE_DIR}/imports.txt
+                OUTPUT_VARIABLE import_names OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+separate_arguments(import_names)
+set(import_sources)
+foreach(name ${import_names})
+    list(APPEND import_sources ${imports_dir}/${name}.S)
+endforeach()
+add_custom_command(OUTPUT ${import_sources}
+    COMMAND python3 ${XSDK_ROOT}/tools/gen_imports.py ${CMAKE_CURRENT_SOURCE_DIR}/imports.txt ${imports_dir}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/imports.txt ${XSDK_ROOT}/tools/gen_imports.py
+    VERBATIM)
+
 # ---- the title -------------------------------------------------------------------
 add_executable(tetrispack
+    ${import_sources}
+    src/exit360.cpp
     src/canvas.cpp
     src/formats360.cpp
     src/game.cpp
